@@ -1,0 +1,8 @@
+X parser
+  error handling (compiler message)
+  expression resolving
+  enum support
+  union support
+  constant support
+  transpiler for C
+  release 1.0.0
