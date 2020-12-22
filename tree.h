@@ -1,9 +1,12 @@
 #pragma once
 
+#include <assert.h>
 #include <stdatomic.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "./zone.h"
 
@@ -34,10 +37,24 @@ typedef struct biner_tree_expr_t {
   };
 } biner_tree_expr_t;
 
-typedef enum biner_tree_struct_member_type_kind_t {
-  BINER_TREE_STRUCT_MEMBER_TYPE_KIND_GENERIC,
-  BINER_TREE_STRUCT_MEMBER_TYPE_KIND_USER_DEFINED,
-} biner_tree_struct_member_type_kind_t;
+typedef enum biner_tree_struct_member_type_name_t {
+  BINER_TREE_STRUCT_MEMBER_TYPE_NAME_UINT8,
+  BINER_TREE_STRUCT_MEMBER_TYPE_NAME_UINT16,
+  BINER_TREE_STRUCT_MEMBER_TYPE_NAME_UINT32,
+  BINER_TREE_STRUCT_MEMBER_TYPE_NAME_UINT64,
+  BINER_TREE_STRUCT_MEMBER_TYPE_NAME_INT8,
+  BINER_TREE_STRUCT_MEMBER_TYPE_NAME_INT16,
+  BINER_TREE_STRUCT_MEMBER_TYPE_NAME_INT32,
+  BINER_TREE_STRUCT_MEMBER_TYPE_NAME_INT64,
+  BINER_TREE_STRUCT_MEMBER_TYPE_NAME_FLOAT32,
+  BINER_TREE_STRUCT_MEMBER_TYPE_NAME_FLOAT64,
+  BINER_TREE_STRUCT_MEMBER_TYPE_NAME_USER_DECL,
+
+  BINER_TREE_STRUCT_MEMBER_TYPE_NAME_MAX_,
+} biner_tree_struct_member_type_name_t;
+
+extern const char* const biner_tree_struct_member_type_name_string_map
+  [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_MAX_];
 
 typedef enum biner_tree_struct_member_type_qualifier_t {
   BINER_TREE_STRUCT_MEMBER_TYPE_QUALIFIER_NONE,
@@ -46,9 +63,8 @@ typedef enum biner_tree_struct_member_type_qualifier_t {
 } biner_tree_struct_member_type_qualifier_t;
 
 typedef struct biner_tree_struct_member_type_t {
-  biner_tree_struct_member_type_kind_t kind;
+  biner_tree_struct_member_type_name_t name;
   union {
-    biner_zone_ptr(char)              generic;
     biner_zone_ptr(biner_tree_decl_t) decl;
   };
 
@@ -103,6 +119,22 @@ typedef struct biner_tree_parse_context_t {
 } biner_tree_parse_context_t;
 
 extern biner_tree_parse_context_t biner_tree_parse_context_;
+
+static inline bool biner_tree_struct_member_type_name_unstringify(
+    biner_tree_struct_member_type_name_t* name,
+    const char*                           str) {
+  assert(name != NULL);
+  assert(str  != NULL);
+
+  for (size_t i = 0; i < BINER_TREE_STRUCT_MEMBER_TYPE_NAME_MAX_; ++i) {
+    const char* item = biner_tree_struct_member_type_name_string_map[i];
+    if (item != NULL && strcmp(str, item) == 0) {
+      *name = (biner_tree_struct_member_type_name_t) i;
+      return true;
+    }
+  }
+  return false;
+}
 
 const uint8_t*
 biner_tree_parse(

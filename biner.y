@@ -51,7 +51,9 @@ unwrap_struct_member_ref_(
 %token <i>   INTEGER;
 
 %type <ptr> decl_list decl
-%type <ptr> struct_body struct_member struct_member_type struct_member_reference
+%type <ptr> struct_member_list struct_member
+%type <ptr> struct_member_type array_struct_member_type unqualified_struct_member_type
+%type <ptr> struct_member_reference
 %type <ptr> expr add_expr mul_expr operand
 
 %start decl_list
@@ -73,7 +75,7 @@ decl_list
   ;
 
 decl
-  : STRUCT IDENT '{' struct_body '}' ';' {
+  : STRUCT IDENT '{' struct_member_list '}' ';' {
     if (find_decl_by_name_($2) != 0) {
       yyerrorf("duplicated declaration of '%s'", ref(char, $2));
       YYABORT;
@@ -88,11 +90,11 @@ decl
   }
   ;
 
-struct_body
+struct_member_list
   : struct_member {
     $$ = ctx.last_member = $1;
   }
-  | struct_body struct_member {
+  | struct_member_list struct_member {
     ref(biner_tree_struct_member_t, $2)->prev = $1;
     $$ = ctx.last_member = $2;
   }
@@ -114,25 +116,40 @@ struct_member
   ;
 
 struct_member_type
-  : IDENT {
-    /* TODO: upgrade generic type to user-defined type. */
-    $$ = alloc_(biner_tree_struct_member_type_t);
-    *ref(biner_tree_struct_member_type_t, $$) =
-      (biner_tree_struct_member_type_t) {
-        .kind      = BINER_TREE_STRUCT_MEMBER_TYPE_KIND_GENERIC,
-        .generic   = $1,
-        .qualifier = BINER_TREE_STRUCT_MEMBER_TYPE_QUALIFIER_NONE,
-      };
+  : array_struct_member_type
+  | unqualified_struct_member_type
+  ;
+
+array_struct_member_type
+  : unqualified_struct_member_type '[' expr ']' {
+    $$ = $1;
+    biner_tree_struct_member_type_t* t =
+        ref(biner_tree_struct_member_type_t, $$);
+    t->qualifier = BINER_TREE_STRUCT_MEMBER_TYPE_QUALIFIER_DYNAMIC_ARRAY;
+    t->expr      = $3;
   }
-  | IDENT '[' expr ']' {
+  ;
+
+unqualified_struct_member_type
+  : IDENT {
     $$ = alloc_(biner_tree_struct_member_type_t);
-    *ref(biner_tree_struct_member_type_t, $$) =
-      (biner_tree_struct_member_type_t) {
-        .kind      = BINER_TREE_STRUCT_MEMBER_TYPE_KIND_GENERIC,
-        .generic   = $1,
-        .qualifier = BINER_TREE_STRUCT_MEMBER_TYPE_QUALIFIER_DYNAMIC_ARRAY,
-        .expr      = $3,
-      };
+    biner_tree_struct_member_type_t* t =
+        ref(biner_tree_struct_member_type_t, $$);
+    *t = (biner_tree_struct_member_type_t) {
+      .qualifier = BINER_TREE_STRUCT_MEMBER_TYPE_QUALIFIER_NONE,
+    };
+
+    const biner_zone_ptr(biner_tree_decl_t) decl = find_decl_by_name_($1);
+    if (decl == 0) {
+      if (!biner_tree_struct_member_type_name_unstringify(
+          &t->name, ref(char, $1))) {
+        yyerrorf("unknown type '%s'", ref(char, $1));
+        YYABORT;
+      }
+    } else {
+      t->name = BINER_TREE_STRUCT_MEMBER_TYPE_NAME_USER_DECL;
+      t->decl = decl;
+    }
   }
   ;
 
@@ -254,7 +271,7 @@ find_child_struct_member_by_name_(
 
   const biner_tree_struct_member_type_t* t =
     ref(biner_tree_struct_member_type_t, m->type);
-  if (t->kind != BINER_TREE_STRUCT_MEMBER_TYPE_KIND_USER_DEFINED) {
+  if (t->name != BINER_TREE_STRUCT_MEMBER_TYPE_NAME_USER_DECL) {
     yyerrorf("typeof '%s' is not user-defined", ref(char, m->name));
     return 0;
   }

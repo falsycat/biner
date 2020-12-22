@@ -18,7 +18,18 @@ int main(void) {
     const biner_tree_struct_member_t* member =
       (const biner_tree_struct_member_t*) (zone + decl->member);
     while ((uintptr_t) member != (uintptr_t) zone) {
-      printf("  %s\n", zone + member->name);
+      printf("  ");
+      const biner_tree_struct_member_type_t* type =
+        (const biner_tree_struct_member_type_t*) (zone + member->type);
+      if (type->name == BINER_TREE_STRUCT_MEMBER_TYPE_NAME_USER_DECL) {
+        const biner_tree_decl_t* decl =
+          (const biner_tree_decl_t*) (zone + type->decl);
+        printf("%8s ", zone + decl->name);
+      } else {
+        printf("%8s ",
+          biner_tree_struct_member_type_name_string_map[type->name]);
+      }
+      printf("%s\n", zone + member->name);
       member = (const biner_tree_struct_member_t*) (zone + member->prev);
     }
     decl = (const biner_tree_decl_t*) (zone + decl->prev);
