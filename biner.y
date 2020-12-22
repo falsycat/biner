@@ -11,26 +11,34 @@
 
 #define ctx (biner_tree_parse_context_)
 
-#define alloc_(T)  (biner_zone_alloc(&ctx.zone, sizeof(T)))
+#define alloc_(T) (biner_zone_alloc(&ctx.zone, sizeof(T)))
 #define ref(T, p) ((T*) (ctx.zone.ptr+p))
 
-extern int  yylex(void);
-extern void yyerror(const char*);
+extern char* yytext;
+
+extern int yylex(void);
+
+#define yyerrorf(fmt, ...)  \
+  fprintf(stderr, "[%zu:%zu] "fmt"\n", ctx.line+1, ctx.column+1, __VA_ARGS__)
+#define yyerror(msg)  \
+  fprintf(stderr, "[%zu:%zu] "msg"\n", ctx.line+1, ctx.column+1)
+
+static inline biner_zone_ptr(biner_tree_decl_t) find_decl_by_name_(
+  biner_zone_ptr(char) name);
 
 static inline biner_zone_ptr(biner_tree_struct_member_t)
-find_struct_member_(
-    biner_zone_ptr(biner_tree_struct_member_t) itr,
-    biner_zone_ptr(char)                       name) {
-  while (itr) {
-    const biner_tree_struct_member_t* m = ref(biner_tree_struct_member_t, itr);
-    if (strcmp(ref(char, m->name), ref(char, name)) == 0) {
-      return itr;
-    }
-    itr = m->prev;
-  }
-  yyerror("unknown member");
-  return 0;
-}
+find_struct_member_by_name_(
+  biner_zone_ptr(biner_tree_struct_member_t) last_member,
+  biner_zone_ptr(char)                       name);
+
+static inline biner_zone_ptr(biner_tree_struct_member_t)
+find_child_struct_member_by_name_(
+    biner_zone_ptr(biner_tree_struct_member_t) member,
+    biner_zone_ptr(char)                       name);
+
+static inline biner_zone_ptr(biner_tree_struct_member_t)
+unwrap_struct_member_ref_(
+    biner_zone_ptr(biner_tree_struct_member_reference_t) memref);
 %}
 
 %union {
@@ -66,6 +74,10 @@ decl_list
 
 decl
   : STRUCT IDENT '{' struct_body '}' ';' {
+    if (find_decl_by_name_($2) != 0) {
+      yyerrorf("duplicated declaration of '%s'", ref(char, $2));
+      YYABORT;
+    }
     $$ = alloc_(biner_tree_decl_t);
     *ref(biner_tree_decl_t, $$) = (biner_tree_decl_t) {
       .name   = $2,
@@ -88,6 +100,10 @@ struct_body
 
 struct_member
   : struct_member_type IDENT ';' {
+    if (find_struct_member_by_name_(ctx.last_member, $2) != 0) {
+      yyerrorf("duplicated struct member of '%s'", ref(char, $2));
+      YYABORT;
+    }
     $$ = alloc_(biner_tree_struct_member_t);
     *ref(biner_tree_struct_member_t, $$) =
       (biner_tree_struct_member_t) {
@@ -113,7 +129,7 @@ struct_member_type
     *ref(biner_tree_struct_member_type_t, $$) =
       (biner_tree_struct_member_type_t) {
         .kind      = BINER_TREE_STRUCT_MEMBER_TYPE_KIND_GENERIC,
-        .generic      = $1,
+        .generic   = $1,
         .qualifier = BINER_TREE_STRUCT_MEMBER_TYPE_QUALIFIER_DYNAMIC_ARRAY,
         .expr      = $3,
       };
@@ -180,34 +196,82 @@ operand
 
 struct_member_reference
   : IDENT {
+    const biner_zone_ptr(biner_tree_struct_member_t) member =
+      find_struct_member_by_name_(ctx.last_member, $1);
+    if (member == 0) {
+      yyerrorf("unknown member '%s'", ref(char, $1));
+      YYABORT;
+    }
+
     $$ = alloc_(biner_tree_struct_member_reference_t);
     *ref(biner_tree_struct_member_reference_t, $$) =
-      (biner_tree_struct_member_reference_t) {
-        .member = find_struct_member_(ctx.last_member, $1),
-      };
+      (biner_tree_struct_member_reference_t) { .member = member, };
   }
   | struct_member_reference '.' IDENT {
-    const biner_tree_struct_member_t* p =
-      ref(biner_tree_struct_member_t, $1);
-
-    const biner_tree_struct_member_type_t* t =
-      ref(biner_tree_struct_member_type_t, p->type);
-    if (t->kind != BINER_TREE_STRUCT_MEMBER_TYPE_KIND_USER_DEFINED) {
-      yyerror("not user-defined data");
+    const biner_zone_ptr(biner_tree_struct_member_t) member =
+      find_child_struct_member_by_name_(unwrap_struct_member_ref_($1), $3);
+    if (member == 0) {
+      yyerrorf("unknown member '%s'", ref(char, $3));
       YYABORT;
     }
 
-    const biner_tree_decl_t* d = ref(biner_tree_decl_t, t->decl);
-    if (d->type != BINER_TREE_DECL_TYPE_STRUCT) {
-      yyerror("not struct");
-      YYABORT;
-    }
     $$ = alloc_(biner_tree_struct_member_reference_t);
     *ref(biner_tree_struct_member_reference_t, $$) =
-      (biner_tree_struct_member_reference_t) {
-        .member = find_struct_member_(d->member, $3),
-      };
+      (biner_tree_struct_member_reference_t) { .member = member, };
   }
   ;
 
 %%
+static inline biner_zone_ptr(biner_tree_decl_t) find_decl_by_name_(
+    biner_zone_ptr(char) name) {
+  biner_zone_ptr(biner_tree_decl_t) itr = ctx.last_decl;
+  while (itr) {
+    const biner_tree_decl_t* decl = ref(biner_tree_decl_t, itr);
+    if (strcmp(ref(char, decl->name), ref(char, name)) == 0) return itr;
+    itr = decl->prev;
+  }
+  return 0;
+}
+
+static inline biner_zone_ptr(biner_tree_struct_member_t)
+find_struct_member_by_name_(
+    biner_zone_ptr(biner_tree_struct_member_t) last_member,
+    biner_zone_ptr(char)                       name) {
+  biner_zone_ptr(biner_tree_struct_member_t) itr = last_member;
+  while (itr) {
+    const biner_tree_struct_member_t* m = ref(biner_tree_struct_member_t, itr);
+    if (strcmp(ref(char, m->name), ref(char, name)) == 0) return itr;
+    itr = m->prev;
+  }
+  return 0;
+}
+
+static inline biner_zone_ptr(biner_tree_struct_member_t)
+find_child_struct_member_by_name_(
+    biner_zone_ptr(biner_tree_struct_member_t) member,
+    biner_zone_ptr(char)                       name) {
+  const biner_tree_struct_member_t* m = ref(biner_tree_struct_member_t, member);
+
+  const biner_tree_struct_member_type_t* t =
+    ref(biner_tree_struct_member_type_t, m->type);
+  if (t->kind != BINER_TREE_STRUCT_MEMBER_TYPE_KIND_USER_DEFINED) {
+    yyerrorf("typeof '%s' is not user-defined", ref(char, m->name));
+    return 0;
+  }
+  const biner_tree_decl_t* d = ref(biner_tree_decl_t, t->decl);
+  if (d->type != BINER_TREE_DECL_TYPE_STRUCT) {
+    yyerrorf("'%s' (typeof '%s') is not struct",
+      ref(char, d->name),
+      ref(char, m->name));
+    return 0;
+  }
+  return find_struct_member_by_name_(d->member, name);
+}
+
+static inline biner_zone_ptr(biner_tree_struct_member_t)
+unwrap_struct_member_ref_(
+    biner_zone_ptr(biner_tree_struct_member_reference_t) memref) {
+  const biner_tree_struct_member_reference_t* r =
+    ref(biner_tree_struct_member_reference_t, memref);
+  return r->member;
+}

@@ -1,5 +1,8 @@
 X parser
-  error handling (compiler message)
+X error handling (compiler message)
+  user-defined type resolving
+  make enum for generic types
+  location for each declarations
   expression resolving
   enum support
   union support

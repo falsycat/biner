@@ -14,12 +14,6 @@
 
 biner_tree_parse_context_t biner_tree_parse_context_ = {0};
 
-int yyerror(char* str) {
-  extern char* yytext;
-  fprintf(stderr, "error: %s: %s\n", str, yytext);
-  return 0;
-}
-
 const uint8_t* biner_tree_parse(FILE* fp) {
   if (atomic_flag_test_and_set(&biner_tree_parse_context_.dirty)) {
     fprintf(stderr, "parsing context is dirty now\n");

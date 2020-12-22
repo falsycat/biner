@@ -94,6 +94,9 @@ typedef struct biner_tree_parse_context_t {
   atomic_flag  dirty;
   biner_zone_t zone;
 
+  size_t line;
+  size_t column;
+
   biner_zone_ptr(biner_tree_root_t)          root;
   biner_zone_ptr(biner_tree_decl_t)          last_decl;
   biner_zone_ptr(biner_tree_struct_member_t) last_member;
