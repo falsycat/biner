@@ -18,7 +18,7 @@ typedef struct biner_tree_decl_t                    biner_tree_decl_t;
 
 typedef enum biner_tree_expr_type_t {
   BINER_TREE_EXPR_TYPE_OPERAND_INTEGER,
-  BINER_TREE_EXPR_TYPE_OPERAND_REFER,
+  BINER_TREE_EXPR_TYPE_OPERAND_REFERENCE,
   BINER_TREE_EXPR_TYPE_OPERATOR_ADD,
   BINER_TREE_EXPR_TYPE_OPERATOR_SUB,
   BINER_TREE_EXPR_TYPE_OPERATOR_MUL,
@@ -119,22 +119,6 @@ typedef struct biner_tree_parse_context_t {
 } biner_tree_parse_context_t;
 
 extern biner_tree_parse_context_t biner_tree_parse_context_;
-
-static inline bool biner_tree_struct_member_type_name_unstringify(
-    biner_tree_struct_member_type_name_t* name,
-    const char*                           str) {
-  assert(name != NULL);
-  assert(str  != NULL);
-
-  for (size_t i = 0; i < BINER_TREE_STRUCT_MEMBER_TYPE_NAME_MAX_; ++i) {
-    const char* item = biner_tree_struct_member_type_name_string_map[i];
-    if (item != NULL && strcmp(str, item) == 0) {
-      *name = (biner_tree_struct_member_type_name_t) i;
-      return true;
-    }
-  }
-  return false;
-}
 
 const uint8_t*
 biner_tree_parse(

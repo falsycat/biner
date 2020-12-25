@@ -1,5 +1,6 @@
 %{
 #include <assert.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -23,22 +24,38 @@ extern int yylex(void);
 #define yyerror(msg)  \
   fprintf(stderr, "[%zu:%zu] "msg"\n", ctx.line+1, ctx.column+1)
 
-static inline biner_zone_ptr(biner_tree_decl_t) find_decl_by_name_(
-  biner_zone_ptr(char) name);
+static inline bool
+unstringify_struct_member_type_name_(
+  biner_tree_struct_member_type_name_t* name,
+  biner_zone_ptr(char)                  str
+);
+
+static inline biner_zone_ptr(biner_tree_decl_t)
+find_decl_by_name_(
+  biner_zone_ptr(char) name
+);
 
 static inline biner_zone_ptr(biner_tree_struct_member_t)
 find_struct_member_by_name_(
   biner_zone_ptr(biner_tree_struct_member_t) last_member,
-  biner_zone_ptr(char)                       name);
+  biner_zone_ptr(char)                       name
+);
 
 static inline biner_zone_ptr(biner_tree_struct_member_t)
 find_child_struct_member_by_name_(
-    biner_zone_ptr(biner_tree_struct_member_t) member,
-    biner_zone_ptr(char)                       name);
+  biner_zone_ptr(biner_tree_struct_member_t) member,
+  biner_zone_ptr(char)                       name
+);
 
 static inline biner_zone_ptr(biner_tree_struct_member_t)
 unwrap_struct_member_ref_(
-    biner_zone_ptr(biner_tree_struct_member_reference_t) memref);
+  biner_zone_ptr(biner_tree_struct_member_reference_t) memref
+);
+
+static biner_zone_ptr(biner_tree_expr_t)
+resolve_constant_(
+  biner_zone_ptr(char) ident
+);
 %}
 
 %union {
@@ -53,7 +70,6 @@ unwrap_struct_member_ref_(
 %type <ptr> decl_list decl
 %type <ptr> struct_member_list struct_member
 %type <ptr> struct_member_type array_struct_member_type unqualified_struct_member_type
-%type <ptr> struct_member_reference
 %type <ptr> expr add_expr mul_expr operand
 
 %start decl_list
@@ -141,8 +157,7 @@ unqualified_struct_member_type
 
     const biner_zone_ptr(biner_tree_decl_t) decl = find_decl_by_name_($1);
     if (decl == 0) {
-      if (!biner_tree_struct_member_type_name_unstringify(
-          &t->name, ref(char, $1))) {
+      if (!unstringify_struct_member_type_name_(&t->name, $1)) {
         yyerrorf("unknown type '%s'", ref(char, $1));
         YYABORT;
       }
@@ -201,44 +216,68 @@ operand
       .i    = $1,
     };
   }
-  | struct_member_reference {
-    $$ = alloc_(biner_tree_expr_t);
-    *ref(biner_tree_expr_t, $$) = (biner_tree_expr_t) {
-      .type = BINER_TREE_EXPR_TYPE_OPERAND_REFER,
-      .r    = $1,
-    };
+  | IDENT {
+    const biner_zone_ptr(biner_tree_struct_member_t) m =
+      find_struct_member_by_name_(ctx.last_member, $1);
+    if (m != 0) {
+      biner_zone_ptr(biner_tree_struct_member_reference_t) mref =
+        alloc_(biner_tree_struct_member_reference_t);
+      *ref(biner_tree_struct_member_reference_t, mref) =
+        (biner_tree_struct_member_reference_t) { .member = m, };
+
+      $$ = alloc_(biner_tree_expr_t);
+      *ref(biner_tree_expr_t, $$) = (biner_tree_expr_t) {
+        .type = BINER_TREE_EXPR_TYPE_OPERAND_REFERENCE,
+        .r    = mref,
+      };
+    } else {
+      $$ = resolve_constant_($1);
+      if ($$ == 0) {
+        yyerrorf("unknown member or symbol '%s'", ref(char, $1));
+        YYABORT;
+      }
+    }
+  }
+  | operand '.' IDENT {
+    biner_tree_expr_t* expr = ref(biner_tree_expr_t, $1);
+    if (expr->type != BINER_TREE_EXPR_TYPE_OPERAND_REFERENCE) {
+      yyerrorf("refering non-struct's child, '%s'", ref(char, $3));
+      YYABORT;
+    }
+    const biner_zone_ptr(biner_tree_struct_member_t) m =
+      find_child_struct_member_by_name_(unwrap_struct_member_ref_(expr->r), $3);
+    if (m == 0) {
+      yyerrorf("unknown member '%s'", ref(char, $3));
+      YYABORT;
+    }
+    $$ = alloc_(biner_tree_struct_member_reference_t);
+    *ref(biner_tree_struct_member_reference_t, $$) =
+      (biner_tree_struct_member_reference_t) {
+        .member = m,
+        .prev   = expr->r,
+      };
+    expr->r = $$;
+    /* A shared expression such as constant cannot have a reference to member.
+     * So modification of the expression doesn't cause any side effects.
+     */
   }
   | '(' expr ')' { $$ = $2; }
   ;
 
-struct_member_reference
-  : IDENT {
-    const biner_zone_ptr(biner_tree_struct_member_t) member =
-      find_struct_member_by_name_(ctx.last_member, $1);
-    if (member == 0) {
-      yyerrorf("unknown member '%s'", ref(char, $1));
-      YYABORT;
-    }
-
-    $$ = alloc_(biner_tree_struct_member_reference_t);
-    *ref(biner_tree_struct_member_reference_t, $$) =
-      (biner_tree_struct_member_reference_t) { .member = member, };
-  }
-  | struct_member_reference '.' IDENT {
-    const biner_zone_ptr(biner_tree_struct_member_t) member =
-      find_child_struct_member_by_name_(unwrap_struct_member_ref_($1), $3);
-    if (member == 0) {
-      yyerrorf("unknown member '%s'", ref(char, $3));
-      YYABORT;
-    }
-
-    $$ = alloc_(biner_tree_struct_member_reference_t);
-    *ref(biner_tree_struct_member_reference_t, $$) =
-      (biner_tree_struct_member_reference_t) { .member = member, };
-  }
-  ;
-
 %%
+static inline bool unstringify_struct_member_type_name_(
+    biner_tree_struct_member_type_name_t* name,
+    biner_zone_ptr(char)                  str) {
+  for (size_t i = 0; i < BINER_TREE_STRUCT_MEMBER_TYPE_NAME_MAX_; ++i) {
+    const char* item = biner_tree_struct_member_type_name_string_map[i];
+    if (item != NULL && strcmp(ref(char, str), item) == 0) {
+      *name = (biner_tree_struct_member_type_name_t) i;
+      return true;
+    }
+  }
+  return false;
+}
+
 static inline biner_zone_ptr(biner_tree_decl_t) find_decl_by_name_(
     biner_zone_ptr(char) name) {
   biner_zone_ptr(biner_tree_decl_t) itr = ctx.last_decl;
@@ -291,4 +330,11 @@ unwrap_struct_member_ref_(
   const biner_tree_struct_member_reference_t* r =
     ref(biner_tree_struct_member_reference_t, memref);
   return r->member;
+}
+
+static inline biner_zone_ptr(biner_tree_expr_t) resolve_constant_(
+    biner_zone_ptr(char) ident) {
+  (void) ident;
+  /* TODO: check out enums and constants */
+  return 0;
 }

@@ -2,8 +2,8 @@ X parser
 X error handling (compiler message)
 X user-defined type resolving
 X make enum for generic types
-  location for each declarations
-  expression resolving
+X constant resolving in expression
+  check if an expression is static/dynamic
   enum support
   union support
   constant support
