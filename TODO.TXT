@@ -3,9 +3,10 @@ X error handling (compiler message)
 X user-defined type resolving
 X make enum for generic types
 X constant resolving in expression
-  check if an expression is static/dynamic
+X check if an expression is static/dynamic
   enum support
-  union support
   constant support
+  conditional switching support
+  union support
   transpiler for C
   release 1.0.0

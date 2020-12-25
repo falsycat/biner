@@ -52,6 +52,13 @@ unwrap_struct_member_ref_(
   biner_zone_ptr(biner_tree_struct_member_reference_t) memref
 );
 
+static inline biner_zone_ptr(biner_tree_expr_t)
+create_operator_(
+  biner_zone_ptr(biner_tree_expr_t) l,
+  biner_tree_expr_type_t            type,
+  biner_zone_ptr(biner_tree_expr_t) r
+);
+
 static biner_zone_ptr(biner_tree_expr_t)
 resolve_constant_(
   biner_zone_ptr(char) ident
@@ -141,8 +148,12 @@ array_struct_member_type
     $$ = $1;
     biner_tree_struct_member_type_t* t =
         ref(biner_tree_struct_member_type_t, $$);
-    t->qualifier = BINER_TREE_STRUCT_MEMBER_TYPE_QUALIFIER_DYNAMIC_ARRAY;
-    t->expr      = $3;
+    t->expr = $3;
+
+    const biner_tree_expr_t* expr = ref(biner_tree_expr_t, $3);
+    t->qualifier = expr->dynamic?
+      BINER_TREE_STRUCT_MEMBER_TYPE_QUALIFIER_DYNAMIC_ARRAY:
+      BINER_TREE_STRUCT_MEMBER_TYPE_QUALIFIER_STATIC_ARRAY;
   }
   ;
 
@@ -175,36 +186,20 @@ expr
 add_expr
   : mul_expr
   | add_expr '+' mul_expr {
-    $$ = alloc_(biner_tree_expr_t);
-    *ref(biner_tree_expr_t, $$) = (biner_tree_expr_t) {
-      .type     = BINER_TREE_EXPR_TYPE_OPERATOR_ADD,
-      .operands = {$1, $3},
-    };
+    $$ = create_operator_($1, BINER_TREE_EXPR_TYPE_OPERATOR_ADD, $3);
   }
   | add_expr '-' mul_expr {
-    $$ = alloc_(biner_tree_expr_t);
-    *ref(biner_tree_expr_t, $$) = (biner_tree_expr_t) {
-      .type     = BINER_TREE_EXPR_TYPE_OPERATOR_SUB,
-      .operands = {$1, $3},
-    };
+    $$ = create_operator_($1, BINER_TREE_EXPR_TYPE_OPERATOR_SUB, $3);
   }
   ;
 
 mul_expr
   : operand
   | mul_expr '*' operand {
-    $$ = alloc_(biner_tree_expr_t);
-    *ref(biner_tree_expr_t, $$) = (biner_tree_expr_t) {
-      .type     = BINER_TREE_EXPR_TYPE_OPERATOR_MUL,
-      .operands = {$1, $3},
-    };
+    $$ = create_operator_($1, BINER_TREE_EXPR_TYPE_OPERATOR_MUL, $3);
   }
   | mul_expr '/' operand {
-    $$ = alloc_(biner_tree_expr_t);
-    *ref(biner_tree_expr_t, $$) = (biner_tree_expr_t) {
-      .type     = BINER_TREE_EXPR_TYPE_OPERATOR_DIV,
-      .operands = {$1, $3},
-    };
+    $$ = create_operator_($1, BINER_TREE_EXPR_TYPE_OPERATOR_DIV, $3);
   }
   ;
 
@@ -227,8 +222,9 @@ operand
 
       $$ = alloc_(biner_tree_expr_t);
       *ref(biner_tree_expr_t, $$) = (biner_tree_expr_t) {
-        .type = BINER_TREE_EXPR_TYPE_OPERAND_REFERENCE,
-        .r    = mref,
+        .type    = BINER_TREE_EXPR_TYPE_OPERAND_REFERENCE,
+        .dynamic = true,
+        .r       = mref,
       };
     } else {
       $$ = resolve_constant_($1);
@@ -332,9 +328,25 @@ unwrap_struct_member_ref_(
   return r->member;
 }
 
+static inline biner_zone_ptr(biner_tree_expr_t) create_operator_(
+    biner_zone_ptr(biner_tree_expr_t) l,
+    biner_tree_expr_type_t            type,
+    biner_zone_ptr(biner_tree_expr_t) r) {
+  const biner_tree_expr_t* lexpr = ref(biner_tree_expr_t, l);
+  const biner_tree_expr_t* rexpr = ref(biner_tree_expr_t, r);
+
+  biner_zone_ptr(biner_tree_expr_t) expr = alloc_(biner_tree_expr_t);
+  *ref(biner_tree_expr_t, expr) = (biner_tree_expr_t) {
+    .type     = type,
+    .dynamic  = lexpr->dynamic || rexpr->dynamic,
+    .operands = {l, r},
+  };
+  return expr;
+}
+
 static inline biner_zone_ptr(biner_tree_expr_t) resolve_constant_(
     biner_zone_ptr(char) ident) {
   (void) ident;
-  /* TODO: check out enums and constants */
+  /* TODO: find out enums and constants */
   return 0;
 }

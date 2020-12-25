@@ -27,6 +27,7 @@ typedef enum biner_tree_expr_type_t {
 
 typedef struct biner_tree_expr_t {
   biner_tree_expr_type_t type;
+  bool dynamic;
   union {
     int64_t i;
     biner_zone_ptr(biner_tree_struct_member_reference_t) r;
