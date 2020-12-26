@@ -28,7 +28,7 @@ static inline void print_struct_(
   const biner_tree_struct_member_t* member =
     (const biner_tree_struct_member_t*) (zone + decl->struct_);
   while ((uintptr_t) member != (uintptr_t) zone) {
-    printf("  ");
+    printf("  %2zu ", member->index);
     const biner_tree_struct_member_type_t* type =
       (const biner_tree_struct_member_type_t*) (zone + member->type);
     if (type->name == BINER_TREE_STRUCT_MEMBER_TYPE_NAME_USER_DECL) {

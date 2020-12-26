@@ -84,6 +84,7 @@ typedef struct biner_tree_struct_member_type_t {
 } biner_tree_struct_member_type_t;
 
 typedef struct biner_tree_struct_member_t {
+  size_t index;
   biner_zone_ptr(char)                            name;
   biner_zone_ptr(biner_tree_struct_member_type_t) type;
   biner_zone_ptr(biner_tree_expr_t)               condition;
@@ -135,12 +136,8 @@ typedef struct biner_tree_parse_context_t {
   biner_zone_ptr(biner_tree_root_t) root;
   biner_zone_ptr(biner_tree_decl_t) last_decl;
 
-  union {
-    biner_zone_ptr(void) last_body;
-
-    biner_zone_ptr(biner_tree_struct_member_t) last_struct;
-    biner_zone_ptr(biner_tree_enum_member_t)   last_enum;
-  };
+  biner_zone_ptr(biner_tree_struct_member_t) last_struct;
+  biner_zone_ptr(biner_tree_enum_member_t)   last_enum;
 } biner_tree_parse_context_t;
 
 extern biner_tree_parse_context_t biner_tree_parse_context_;

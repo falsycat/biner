@@ -32,6 +32,7 @@ H [0-9A-Fa-f]
 "const"  { count_(); return CONST; }
 "enum"   { count_(); return ENUM; }
 "struct" { count_(); return STRUCT; }
+"union"  { count_(); return UNION; }
 
 {I}({I}|{D})* { yylval.ptr = strnew_(); count_(); return IDENT; }
 

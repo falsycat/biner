@@ -7,6 +7,6 @@ X check if an expression is static/dynamic
 X enum support
 X constant support
 X conditional switching support
-  union support
+X union support
   transpiler for C
   release 1.0.0

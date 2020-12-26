@@ -91,13 +91,13 @@ resolve_constant_(
 }
 
 %token EQUAL NEQUAL LESS_EQUAL GREATER_EQUAL
-%token CONST ENUM STRUCT
+%token CONST ENUM STRUCT UNION
 %token <ptr> IDENT
 %token <i>   INTEGER;
 
 %type <ptr> decl_list decl
 %type <ptr> enum_member_list enum_member
-%type <ptr> struct_member_list struct_member
+%type <ptr> struct_member_list struct_member union_member_list union_member
 %type <ptr> struct_member_type array_struct_member_type unqualified_struct_member_type
 %type <ptr> expr compare_expr add_expr mul_expr unary_expr operand
 
@@ -167,21 +167,48 @@ enum_member
   ;
 
 struct_member_list
-  : struct_member {
+  : struct_member ';' {
     $$ = ctx.last_struct = $1;
   }
-  | struct_member_list struct_member {
-    ref(biner_tree_struct_member_t, $2)->prev = $1;
+  | struct_member_list struct_member ';' {
     $$ = ctx.last_struct = $2;
+
+    biner_tree_struct_member_t* list = ref(biner_tree_struct_member_t, $1);
+    const size_t index = list->index + 1;
+
+    biner_zone_ptr(biner_tree_struct_member_t) itr = $2;
+    while (itr) {
+      biner_tree_struct_member_t* m = ref(biner_tree_struct_member_t, itr);
+      m->index = index;
+      itr = m->prev;
+      if (itr == 0) m->prev = $1;
+    }
+  }
+  ;
+
+union_member_list
+  : union_member ';' {
+    $$ = $1;
+  }
+  | union_member_list union_member ';' {
+    $$ = $2;
+    ref(biner_tree_struct_member_t, $2)->prev = $1;
   }
   ;
 
 struct_member
-  : struct_member_type IDENT ';' {
+  : union_member
+  | UNION '{' union_member_list '}' {
+    $$ = $3;
+  }
+  ;
+
+union_member
+  : struct_member_type IDENT {
     $$ = create_struct_member_(0, $1, $2);
     if ($$ == 0) YYABORT;
   }
-  | '(' expr ')' struct_member_type IDENT ';' {
+  | '(' expr ')' struct_member_type IDENT {
     $$ = create_struct_member_($2, $4, $5);
     if ($$ == 0) YYABORT;
   }
@@ -214,7 +241,6 @@ unqualified_struct_member_type
     *t = (biner_tree_struct_member_type_t) {
       .qualifier = BINER_TREE_STRUCT_MEMBER_TYPE_QUALIFIER_NONE,
     };
-
     const biner_zone_ptr(biner_tree_decl_t) decl = find_decl_by_name_($1);
     if (decl == 0) {
       if (!unstringify_struct_member_type_name_(&t->name, $1)) {
@@ -359,8 +385,9 @@ static inline biner_zone_ptr(biner_tree_decl_t) create_decl_(
     .type = type,
     .body = body,
   };
-  ctx.last_decl = decl;
-  ctx.last_body = 0;
+  ctx.last_decl   = decl;
+  ctx.last_enum   = 0;
+  ctx.last_struct = 0;
   return decl;
 }
 
