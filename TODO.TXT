@@ -5,7 +5,7 @@ X make enum for generic types
 X constant resolving in expression
 X check if an expression is static/dynamic
 X enum support
-  constant support
+X constant support
   conditional switching support
   union support
   transpiler for C

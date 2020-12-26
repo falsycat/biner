@@ -96,8 +96,9 @@ typedef struct biner_tree_enum_member_t {
 } biner_tree_enum_member_t;
 
 typedef enum biner_tree_decl_type_t {
-  BINER_TREE_DECL_TYPE_STRUCT,
+  BINER_TREE_DECL_TYPE_CONST,
   BINER_TREE_DECL_TYPE_ENUM,
+  BINER_TREE_DECL_TYPE_STRUCT,
 } biner_tree_decl_type_t;
 
 typedef struct biner_tree_decl_t {
@@ -106,8 +107,9 @@ typedef struct biner_tree_decl_t {
   union {
     biner_zone_ptr(void) body;
 
-    biner_zone_ptr(biner_tree_struct_member_t) struct_;
+    biner_zone_ptr(biner_tree_expr_t)          const_;
     biner_zone_ptr(biner_tree_enum_member_t)   enum_;
+    biner_zone_ptr(biner_tree_struct_member_t) struct_;
   };
   biner_zone_ptr(biner_tree_decl_t) prev;
 } biner_tree_decl_t;

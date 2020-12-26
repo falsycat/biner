@@ -24,6 +24,7 @@ H [0-9A-Fa-f]
 "//".* count_();
 [/][*][^*]*[*]+([^*/][^*]*[*]+)*[/] count_(); /* TODO: detect unterminated comment */
 
+"const"  { count_(); return CONST; }
 "enum"   { count_(); return ENUM; }
 "struct" { count_(); return STRUCT; }
 

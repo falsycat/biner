@@ -83,7 +83,7 @@ resolve_constant_(
   uintptr_t ptr;
 }
 
-%token ENUM STRUCT
+%token CONST ENUM STRUCT
 %token <ptr> IDENT
 %token <i>   INTEGER;
 
@@ -98,13 +98,13 @@ resolve_constant_(
 %%
 
 decl_list
-  : decl {
+  : decl ';' {
     *ref(biner_tree_root_t, ctx.root) = (biner_tree_root_t) {
       .decls = $1,
     };
     $$ = ctx.root;
   }
-  | decl_list decl {
+  | decl_list decl ';' {
     ref(biner_tree_decl_t, $2)->prev  = ref(biner_tree_root_t, $1)->decls;
     ref(biner_tree_root_t, $1)->decls = $2;
     $$ = $1;
@@ -112,15 +112,19 @@ decl_list
   ;
 
 decl
-  : ENUM IDENT '{' enum_member_list '}' ';' {
+  : CONST IDENT '=' expr {
+    $$ = create_decl_($2, BINER_TREE_DECL_TYPE_CONST, $4);
+    if ($$ == 0) YYABORT;
+  }
+  | ENUM IDENT '{' enum_member_list '}' {
     $$ = create_decl_($2, BINER_TREE_DECL_TYPE_ENUM, $4);
     if ($$ == 0) YYABORT;
   }
-  | ENUM IDENT '{' enum_member_list ',' '}' ';' {
+  | ENUM IDENT '{' enum_member_list ',' '}' {
     $$ = create_decl_($2, BINER_TREE_DECL_TYPE_ENUM, $4);
     if ($$ == 0) YYABORT;
   }
-  | STRUCT IDENT '{' struct_member_list '}' ';' {
+  | STRUCT IDENT '{' struct_member_list '}' {
     $$ = create_decl_($2, BINER_TREE_DECL_TYPE_STRUCT, $4);
     if ($$ == 0) YYABORT;
   }
@@ -436,6 +440,11 @@ static inline biner_zone_ptr(biner_tree_expr_t) resolve_constant_(
   while (itr) {
     const biner_tree_decl_t* decl = ref(biner_tree_decl_t, itr);
     switch (decl->type) {
+    case BINER_TREE_DECL_TYPE_CONST:
+      if (strcmp(ref(char, decl->name), ref(char, ident)) == 0) {
+        expr = decl->const_;
+      }
+      break;
     case BINER_TREE_DECL_TYPE_ENUM:
       expr = find_enum_member_by_name_(decl->enum_, ident);
       break;

@@ -54,6 +54,9 @@ int main(void) {
     (const biner_tree_decl_t*) (zone + root->decls);
   while ((uintptr_t) decl != (uintptr_t) zone) {
     switch (decl->type) {
+    case BINER_TREE_DECL_TYPE_CONST:
+      printf("const %s\n", zone + decl->name);
+      break;
     case BINER_TREE_DECL_TYPE_ENUM:
       print_enum_(zone, decl);
       break;
