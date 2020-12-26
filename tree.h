@@ -19,6 +19,13 @@ typedef struct biner_tree_decl_t                    biner_tree_decl_t;
 typedef enum biner_tree_expr_type_t {
   BINER_TREE_EXPR_TYPE_OPERAND_INTEGER,
   BINER_TREE_EXPR_TYPE_OPERAND_REFERENCE,
+  BINER_TREE_EXPR_TYPE_OPERATOR_EQUAL,
+  BINER_TREE_EXPR_TYPE_OPERATOR_NEQUAL,
+  BINER_TREE_EXPR_TYPE_OPERATOR_GREATER_EQUAL,
+  BINER_TREE_EXPR_TYPE_OPERATOR_LESS_EQUAL,
+  BINER_TREE_EXPR_TYPE_OPERATOR_GREATER,
+  BINER_TREE_EXPR_TYPE_OPERATOR_LESS,
+  BINER_TREE_EXPR_TYPE_OPERATOR_NOT,
   BINER_TREE_EXPR_TYPE_OPERATOR_ADD,
   BINER_TREE_EXPR_TYPE_OPERATOR_SUB,
   BINER_TREE_EXPR_TYPE_OPERATOR_MUL,
@@ -79,8 +86,8 @@ typedef struct biner_tree_struct_member_type_t {
 typedef struct biner_tree_struct_member_t {
   biner_zone_ptr(char)                            name;
   biner_zone_ptr(biner_tree_struct_member_type_t) type;
-
-  biner_zone_ptr(biner_tree_struct_member_t) prev;
+  biner_zone_ptr(biner_tree_expr_t)               condition;
+  biner_zone_ptr(biner_tree_struct_member_t)      prev;
 } biner_tree_struct_member_t;
 
 typedef struct biner_tree_struct_member_reference_t {

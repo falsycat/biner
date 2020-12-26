@@ -24,6 +24,11 @@ H [0-9A-Fa-f]
 "//".* count_();
 [/][*][^*]*[*]+([^*/][^*]*[*]+)*[/] count_(); /* TODO: detect unterminated comment */
 
+"==" { count_(); return EQUAL; }
+"!=" { count_(); return NEQUAL; }
+"<=" { count_(); return LESS_EQUAL; }
+">=" { count_(); return GREATER_EQUAL; }
+
 "const"  { count_(); return CONST; }
 "enum"   { count_(); return ENUM; }
 "struct" { count_(); return STRUCT; }
@@ -33,7 +38,7 @@ H [0-9A-Fa-f]
 {D}+      { yylval.i = parse_int_(10); count_(); return INTEGER; }
 0[xX]{H}+ { yylval.i = parse_int_(16); count_(); return INTEGER; }
 
-[\+\-\*\/\=\.\(\)[\]\{\}\;\,] { count_(); return yytext[0]; }
+[\+\-\*\/\!\=\<\>\.\(\)[\]\{\}\;\,] { count_(); return yytext[0]; }
 
 (.|\n) count_();
 

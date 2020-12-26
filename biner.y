@@ -42,6 +42,13 @@ find_enum_member_by_name_(
   biner_zone_ptr(char)                     name
 );
 
+static inline biner_zone_ptr(biner_tree_struct_member_t)
+create_struct_member_(
+  biner_zone_ptr(biner_tree_expr_t)               condition,
+  biner_zone_ptr(biner_tree_struct_member_type_t) type,
+  biner_zone_ptr(char)                            name
+);
+
 static inline bool
 unstringify_struct_member_type_name_(
   biner_tree_struct_member_type_name_t* name,
@@ -83,6 +90,7 @@ resolve_constant_(
   uintptr_t ptr;
 }
 
+%token EQUAL NEQUAL LESS_EQUAL GREATER_EQUAL
 %token CONST ENUM STRUCT
 %token <ptr> IDENT
 %token <i>   INTEGER;
@@ -91,7 +99,7 @@ resolve_constant_(
 %type <ptr> enum_member_list enum_member
 %type <ptr> struct_member_list struct_member
 %type <ptr> struct_member_type array_struct_member_type unqualified_struct_member_type
-%type <ptr> expr add_expr mul_expr operand
+%type <ptr> expr compare_expr add_expr mul_expr unary_expr operand
 
 %start decl_list
 
@@ -170,20 +178,12 @@ struct_member_list
 
 struct_member
   : struct_member_type IDENT ';' {
-    if (resolve_constant_($2) != 0) {
-      yyerrorf("duplicated symbol name, '%s'", ref(char, $2));
-      YYABORT;
-    }
-    if (find_struct_member_by_name_(ctx.last_struct, $2) != 0) {
-      yyerrorf("duplicated struct member of '%s'", ref(char, $2));
-      YYABORT;
-    }
-    $$ = alloc_(biner_tree_struct_member_t);
-    *ref(biner_tree_struct_member_t, $$) =
-      (biner_tree_struct_member_t) {
-        .type = $1,
-        .name = $2,
-      };
+    $$ = create_struct_member_(0, $1, $2);
+    if ($$ == 0) YYABORT;
+  }
+  | '(' expr ')' struct_member_type IDENT ';' {
+    $$ = create_struct_member_($2, $4, $5);
+    if ($$ == 0) YYABORT;
   }
   ;
 
@@ -229,7 +229,29 @@ unqualified_struct_member_type
   ;
 
 expr
-  : add_expr { $$ = $1; }
+  : compare_expr
+  ;
+
+compare_expr
+  : add_expr
+  | compare_expr EQUAL add_expr {
+    $$ = create_operator_($1, BINER_TREE_EXPR_TYPE_OPERATOR_EQUAL, $3);
+  }
+  | compare_expr NEQUAL add_expr {
+    $$ = create_operator_($1, BINER_TREE_EXPR_TYPE_OPERATOR_NEQUAL, $3);
+  }
+  | compare_expr '>' add_expr {
+    $$ = create_operator_($1, BINER_TREE_EXPR_TYPE_OPERATOR_GREATER, $3);
+  }
+  | compare_expr '<' add_expr {
+    $$ = create_operator_($1, BINER_TREE_EXPR_TYPE_OPERATOR_LESS, $3);
+  }
+  | compare_expr GREATER_EQUAL add_expr {
+    $$ = create_operator_($1, BINER_TREE_EXPR_TYPE_OPERATOR_GREATER_EQUAL, $3);
+  }
+  | compare_expr LESS_EQUAL add_expr {
+    $$ = create_operator_($1, BINER_TREE_EXPR_TYPE_OPERATOR_LESS_EQUAL, $3);
+  }
   ;
 
 add_expr
@@ -243,12 +265,19 @@ add_expr
   ;
 
 mul_expr
-  : operand
-  | mul_expr '*' operand {
+  : unary_expr
+  | mul_expr '*' unary_expr {
     $$ = create_operator_($1, BINER_TREE_EXPR_TYPE_OPERATOR_MUL, $3);
   }
-  | mul_expr '/' operand {
+  | mul_expr '/' unary_expr {
     $$ = create_operator_($1, BINER_TREE_EXPR_TYPE_OPERATOR_DIV, $3);
+  }
+  ;
+
+unary_expr
+  : operand
+  | '!' operand {
+    $$ = create_operator_($2, BINER_TREE_EXPR_TYPE_OPERATOR_NOT, 0);
   }
   ;
 
@@ -295,13 +324,15 @@ operand
       yyerrorf("unknown member '%s'", ref(char, $3));
       YYABORT;
     }
-    $$ = alloc_(biner_tree_struct_member_reference_t);
-    *ref(biner_tree_struct_member_reference_t, $$) =
+    biner_zone_ptr(biner_tree_struct_member_reference_t) r =
+      alloc_(biner_tree_struct_member_reference_t);
+    *ref(biner_tree_struct_member_reference_t, r) =
       (biner_tree_struct_member_reference_t) {
         .member = m,
         .prev   = expr->r,
       };
-    expr->r = $$;
+    expr->r = r;
+    $$ = $1;
     /* A shared expression such as constant cannot have a reference to member.
      * So modification of the expression doesn't cause any side effects.
      */
@@ -342,6 +373,29 @@ static inline biner_zone_ptr(biner_tree_decl_t) find_decl_by_name_(
     itr = decl->prev;
   }
   return 0;
+}
+
+static inline biner_zone_ptr(biner_tree_struct_member_t) create_struct_member_(
+    biner_zone_ptr(biner_tree_expr_t)               condition,
+    biner_zone_ptr(biner_tree_struct_member_type_t) type,
+    biner_zone_ptr(char)                            name) {
+  if (resolve_constant_(name) != 0) {
+    yyerrorf("duplicated symbol name, '%s'", ref(char, name));
+    return 0;
+  }
+  if (find_struct_member_by_name_(ctx.last_struct, name) != 0) {
+    yyerrorf("duplicated struct member of '%s'", ref(char, name));
+    return 0;
+  }
+  const biner_zone_ptr(biner_tree_struct_member_t) ret =
+    alloc_(biner_tree_struct_member_t);
+  *ref(biner_tree_struct_member_t, ret) =
+    (biner_tree_struct_member_t) {
+      .type      = type,
+      .condition = condition,
+      .name      = name,
+    };
+  return ret;
 }
 
 static inline biner_zone_ptr(biner_tree_expr_t) find_enum_member_by_name_(
@@ -424,7 +478,7 @@ static inline biner_zone_ptr(biner_tree_expr_t) create_operator_(
   biner_zone_ptr(biner_tree_expr_t) expr = alloc_(biner_tree_expr_t);
   *ref(biner_tree_expr_t, expr) = (biner_tree_expr_t) {
     .type     = type,
-    .dynamic  = lexpr->dynamic || rexpr->dynamic,
+    .dynamic  = (l && lexpr->dynamic) || (r && rexpr->dynamic),
     .operands = {l, r},
   };
   return expr;

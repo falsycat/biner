@@ -39,7 +39,12 @@ static inline void print_struct_(
       printf("%8s ",
         biner_tree_struct_member_type_name_string_map[type->name]);
     }
-    printf("%s\n", zone + member->name);
+    if (member->condition == 0) {
+      printf("%s", zone + member->name);
+    } else {
+      printf("(%s)", zone + member->name);
+    }
+    printf("\n");
     member = (const biner_tree_struct_member_t*) (zone + member->prev);
   }
 }
