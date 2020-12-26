@@ -24,10 +24,11 @@ extern int yylex(void);
 #define yyerror(msg)  \
   fprintf(stderr, "[%zu:%zu] "msg"\n", ctx.line+1, ctx.column+1)
 
-static inline bool
-unstringify_struct_member_type_name_(
-  biner_tree_struct_member_type_name_t* name,
-  biner_zone_ptr(char)                  str
+static inline biner_zone_ptr(biner_tree_decl_t)
+create_decl_(
+  biner_zone_ptr(char)   name,
+  biner_tree_decl_type_t type,
+  biner_zone_ptr(void)   body
 );
 
 static inline biner_zone_ptr(biner_tree_decl_t)
@@ -35,9 +36,21 @@ find_decl_by_name_(
   biner_zone_ptr(char) name
 );
 
+static inline biner_zone_ptr(biner_tree_expr_t)
+find_enum_member_by_name_(
+  biner_zone_ptr(biner_tree_enum_member_t) tail_member,
+  biner_zone_ptr(char)                     name
+);
+
+static inline bool
+unstringify_struct_member_type_name_(
+  biner_tree_struct_member_type_name_t* name,
+  biner_zone_ptr(char)                  str
+);
+
 static inline biner_zone_ptr(biner_tree_struct_member_t)
 find_struct_member_by_name_(
-  biner_zone_ptr(biner_tree_struct_member_t) last_member,
+  biner_zone_ptr(biner_tree_struct_member_t) tail_member,
   biner_zone_ptr(char)                       name
 );
 
@@ -70,11 +83,12 @@ resolve_constant_(
   uintptr_t ptr;
 }
 
-%token STRUCT
+%token ENUM STRUCT
 %token <ptr> IDENT
 %token <i>   INTEGER;
 
 %type <ptr> decl_list decl
+%type <ptr> enum_member_list enum_member
 %type <ptr> struct_member_list struct_member
 %type <ptr> struct_member_type array_struct_member_type unqualified_struct_member_type
 %type <ptr> expr add_expr mul_expr operand
@@ -98,34 +112,65 @@ decl_list
   ;
 
 decl
-  : STRUCT IDENT '{' struct_member_list '}' ';' {
-    if (find_decl_by_name_($2) != 0) {
-      yyerrorf("duplicated declaration of '%s'", ref(char, $2));
+  : ENUM IDENT '{' enum_member_list '}' ';' {
+    $$ = create_decl_($2, BINER_TREE_DECL_TYPE_ENUM, $4);
+    if ($$ == 0) YYABORT;
+  }
+  | ENUM IDENT '{' enum_member_list ',' '}' ';' {
+    $$ = create_decl_($2, BINER_TREE_DECL_TYPE_ENUM, $4);
+    if ($$ == 0) YYABORT;
+  }
+  | STRUCT IDENT '{' struct_member_list '}' ';' {
+    $$ = create_decl_($2, BINER_TREE_DECL_TYPE_STRUCT, $4);
+    if ($$ == 0) YYABORT;
+  }
+  ;
+
+enum_member_list
+  : enum_member {
+    $$ = ctx.last_enum = $1;
+  }
+  | enum_member_list ',' enum_member {
+    ref(biner_tree_enum_member_t, $3)->prev = $1;
+    $$ = ctx.last_enum = $3;
+  }
+  ;
+
+enum_member
+  : IDENT '=' expr {
+    if (resolve_constant_($1) != 0) {
+      yyerrorf("duplicated symbol name, '%s'", ref(char, $1));
       YYABORT;
     }
-    $$ = alloc_(biner_tree_decl_t);
-    *ref(biner_tree_decl_t, $$) = (biner_tree_decl_t) {
-      .name   = $2,
-      .member = $4,
+    if (ref(biner_tree_expr_t, $3)->dynamic) {
+      yyerrorf("dynamic expression is not allowed for enum member, '%s'", ref(char, $1));
+      YYABORT;
+    }
+    $$ = alloc_(biner_tree_enum_member_t);
+    *ref(biner_tree_enum_member_t, $$) = (biner_tree_enum_member_t) {
+      .name = $1,
+      .expr = $3,
     };
-    ctx.last_decl   = $$;
-    ctx.last_member = 0;
   }
   ;
 
 struct_member_list
   : struct_member {
-    $$ = ctx.last_member = $1;
+    $$ = ctx.last_struct = $1;
   }
   | struct_member_list struct_member {
     ref(biner_tree_struct_member_t, $2)->prev = $1;
-    $$ = ctx.last_member = $2;
+    $$ = ctx.last_struct = $2;
   }
   ;
 
 struct_member
   : struct_member_type IDENT ';' {
-    if (find_struct_member_by_name_(ctx.last_member, $2) != 0) {
+    if (resolve_constant_($2) != 0) {
+      yyerrorf("duplicated symbol name, '%s'", ref(char, $2));
+      YYABORT;
+    }
+    if (find_struct_member_by_name_(ctx.last_struct, $2) != 0) {
       yyerrorf("duplicated struct member of '%s'", ref(char, $2));
       YYABORT;
     }
@@ -213,7 +258,7 @@ operand
   }
   | IDENT {
     const biner_zone_ptr(biner_tree_struct_member_t) m =
-      find_struct_member_by_name_(ctx.last_member, $1);
+      find_struct_member_by_name_(ctx.last_struct, $1);
     if (m != 0) {
       biner_zone_ptr(biner_tree_struct_member_reference_t) mref =
         alloc_(biner_tree_struct_member_reference_t);
@@ -261,17 +306,27 @@ operand
   ;
 
 %%
-static inline bool unstringify_struct_member_type_name_(
-    biner_tree_struct_member_type_name_t* name,
-    biner_zone_ptr(char)                  str) {
-  for (size_t i = 0; i < BINER_TREE_STRUCT_MEMBER_TYPE_NAME_MAX_; ++i) {
-    const char* item = biner_tree_struct_member_type_name_string_map[i];
-    if (item != NULL && strcmp(ref(char, str), item) == 0) {
-      *name = (biner_tree_struct_member_type_name_t) i;
-      return true;
-    }
+static inline biner_zone_ptr(biner_tree_decl_t) create_decl_(
+    biner_zone_ptr(char)   name,
+    biner_tree_decl_type_t type,
+    biner_zone_ptr(void)   body) {
+  if (resolve_constant_(name) != 0) {
+    yyerrorf("duplicated symbol name, '%s'", ref(char, name));
+    return 0;
   }
-  return false;
+  if (find_decl_by_name_(name) != 0) {
+    yyerrorf("duplicated declaration of '%s'", ref(char, name));
+    return 0;
+  }
+  biner_zone_ptr(biner_tree_decl_t) decl = alloc_(biner_tree_decl_t);
+  *ref(biner_tree_decl_t, decl) = (biner_tree_decl_t) {
+    .name = name,
+    .type = type,
+    .body = body,
+  };
+  ctx.last_decl = decl;
+  ctx.last_body = 0;
+  return decl;
 }
 
 static inline biner_zone_ptr(biner_tree_decl_t) find_decl_by_name_(
@@ -285,11 +340,38 @@ static inline biner_zone_ptr(biner_tree_decl_t) find_decl_by_name_(
   return 0;
 }
 
+static inline biner_zone_ptr(biner_tree_expr_t) find_enum_member_by_name_(
+  biner_zone_ptr(biner_tree_enum_member_t) tail_member,
+  biner_zone_ptr(char)                     name) {
+  biner_zone_ptr(biner_tree_enum_member_t) itr = tail_member;
+  while (itr) {
+    const biner_tree_enum_member_t* member = ref(biner_tree_enum_member_t, itr);
+    if (strcmp(ref(char, member->name), ref(char, name)) == 0) {
+      return member->expr;
+    }
+    itr = member->prev;
+  }
+  return 0;
+}
+
+static inline bool unstringify_struct_member_type_name_(
+    biner_tree_struct_member_type_name_t* name,
+    biner_zone_ptr(char)                  str) {
+  for (size_t i = 0; i < BINER_TREE_STRUCT_MEMBER_TYPE_NAME_MAX_; ++i) {
+    const char* item = biner_tree_struct_member_type_name_string_map[i];
+    if (item != NULL && strcmp(ref(char, str), item) == 0) {
+      *name = (biner_tree_struct_member_type_name_t) i;
+      return true;
+    }
+  }
+  return false;
+}
+
 static inline biner_zone_ptr(biner_tree_struct_member_t)
 find_struct_member_by_name_(
-    biner_zone_ptr(biner_tree_struct_member_t) last_member,
+    biner_zone_ptr(biner_tree_struct_member_t) tail_member,
     biner_zone_ptr(char)                       name) {
-  biner_zone_ptr(biner_tree_struct_member_t) itr = last_member;
+  biner_zone_ptr(biner_tree_struct_member_t) itr = tail_member;
   while (itr) {
     const biner_tree_struct_member_t* m = ref(biner_tree_struct_member_t, itr);
     if (strcmp(ref(char, m->name), ref(char, name)) == 0) return itr;
@@ -317,7 +399,7 @@ find_child_struct_member_by_name_(
       ref(char, m->name));
     return 0;
   }
-  return find_struct_member_by_name_(d->member, name);
+  return find_struct_member_by_name_(d->struct_, name);
 }
 
 static inline biner_zone_ptr(biner_tree_struct_member_t)
@@ -346,7 +428,22 @@ static inline biner_zone_ptr(biner_tree_expr_t) create_operator_(
 
 static inline biner_zone_ptr(biner_tree_expr_t) resolve_constant_(
     biner_zone_ptr(char) ident) {
-  (void) ident;
-  /* TODO: find out enums and constants */
+  biner_zone_ptr(biner_tree_expr_t) expr =
+    find_enum_member_by_name_(ctx.last_enum, ident);
+  if (expr != 0) return expr;
+
+  biner_zone_ptr(biner_tree_decl_t) itr = ctx.last_decl;
+  while (itr) {
+    const biner_tree_decl_t* decl = ref(biner_tree_decl_t, itr);
+    switch (decl->type) {
+    case BINER_TREE_DECL_TYPE_ENUM:
+      expr = find_enum_member_by_name_(decl->enum_, ident);
+      break;
+    default:
+      ;
+    }
+    if (expr != 0) return expr;
+    itr = decl->prev;
+  }
   return 0;
 }

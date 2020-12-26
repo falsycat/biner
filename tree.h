@@ -13,7 +13,7 @@
 typedef struct biner_tree_expr_t                    biner_tree_expr_t;
 typedef struct biner_tree_struct_member_t           biner_tree_struct_member_t;
 typedef struct biner_tree_struct_member_reference_t biner_tree_struct_member_reference_t;
-typedef struct biner_tree_struct_t                  biner_tree_struct_t;
+typedef struct biner_tree_enum_member_t             biner_tree_enum_member_t;
 typedef struct biner_tree_decl_t                    biner_tree_decl_t;
 
 typedef enum biner_tree_expr_type_t {
@@ -78,7 +78,6 @@ typedef struct biner_tree_struct_member_type_t {
 
 typedef struct biner_tree_struct_member_t {
   biner_zone_ptr(char)                            name;
-  biner_zone_ptr(biner_tree_struct_t)             owner;
   biner_zone_ptr(biner_tree_struct_member_type_t) type;
 
   biner_zone_ptr(biner_tree_struct_member_t) prev;
@@ -90,15 +89,25 @@ typedef struct biner_tree_struct_member_reference_t {
   biner_zone_ptr(biner_tree_struct_member_reference_t) prev;
 } biner_tree_struct_member_reference_t;
 
+typedef struct biner_tree_enum_member_t {
+  biner_zone_ptr(char)                     name;
+  biner_zone_ptr(biner_tree_expr_t)        expr;
+  biner_zone_ptr(biner_tree_enum_member_t) prev;
+} biner_tree_enum_member_t;
+
 typedef enum biner_tree_decl_type_t {
   BINER_TREE_DECL_TYPE_STRUCT,
+  BINER_TREE_DECL_TYPE_ENUM,
 } biner_tree_decl_type_t;
 
 typedef struct biner_tree_decl_t {
   biner_zone_ptr(char) name;
   biner_tree_decl_type_t type;
   union {
-    biner_zone_ptr(biner_tree_struct_member_t) member;
+    biner_zone_ptr(void) body;
+
+    biner_zone_ptr(biner_tree_struct_member_t) struct_;
+    biner_zone_ptr(biner_tree_enum_member_t)   enum_;
   };
   biner_zone_ptr(biner_tree_decl_t) prev;
 } biner_tree_decl_t;
@@ -114,9 +123,15 @@ typedef struct biner_tree_parse_context_t {
   size_t line;
   size_t column;
 
-  biner_zone_ptr(biner_tree_root_t)          root;
-  biner_zone_ptr(biner_tree_decl_t)          last_decl;
-  biner_zone_ptr(biner_tree_struct_member_t) last_member;
+  biner_zone_ptr(biner_tree_root_t) root;
+  biner_zone_ptr(biner_tree_decl_t) last_decl;
+
+  union {
+    biner_zone_ptr(void) last_body;
+
+    biner_zone_ptr(biner_tree_struct_member_t) last_struct;
+    biner_zone_ptr(biner_tree_enum_member_t)   last_enum;
+  };
 } biner_tree_parse_context_t;
 
 extern biner_tree_parse_context_t biner_tree_parse_context_;

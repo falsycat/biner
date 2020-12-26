@@ -4,7 +4,7 @@ X user-defined type resolving
 X make enum for generic types
 X constant resolving in expression
 X check if an expression is static/dynamic
-  enum support
+X enum support
   constant support
   conditional switching support
   union support
