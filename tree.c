@@ -8,22 +8,32 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "./zone.h"
+#include "./c/zone.h"
 
 #include "generated/biner.y.h"
 
-const char* const biner_tree_struct_member_type_name_string_map
+const biner_tree_struct_member_type_name_meta_t
+biner_tree_struct_member_type_name_meta_map
     [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_MAX_] = {
-  [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_UINT8]   = "uint8_t",
-  [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_UINT16]  = "uint16_t",
-  [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_UINT32]  = "uint32_t",
-  [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_UINT64]  = "uint64_t",
-  [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_INT8]    = "int8_t",
-  [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_INT16]   = "int16_t",
-  [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_INT32]   = "int32_t",
-  [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_INT64]   = "int64_t",
-  [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_FLOAT32] = "float",
-  [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_FLOAT64] = "double",
+  [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_LU8]  = {"lu8",  1},
+  [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_LU16] = {"lu16", 2},
+  [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_LU32] = {"lu32", 4},
+  [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_LU64] = {"lu64", 8},
+  [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_LI8]  = {"li8",  1},
+  [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_LI16] = {"li16", 2},
+  [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_LI32] = {"li32", 4},
+  [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_LI64] = {"li64", 8},
+  [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_BU8]  = {"bu8",  1},
+  [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_BU16] = {"bu16", 2},
+  [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_BU32] = {"bu32", 4},
+  [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_BU64] = {"bu64", 8},
+  [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_BI8]  = {"bi8",  1},
+  [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_BI16] = {"bi16", 2},
+  [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_BI32] = {"bi32", 4},
+  [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_BI64] = {"bi64", 8},
+  [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_F16]  = {"f16",  2},
+  [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_F32]  = {"f32",  4},
+  [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_F64]  = {"f64",  8},
 };
 
 biner_tree_parse_context_t biner_tree_parse_context_ = {0};

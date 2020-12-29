@@ -6,7 +6,7 @@
 #include <inttypes.h>
 
 #include "./tree.h"
-#include "./zone.h"
+#include "./c/zone.h"
 
 #include "generated/biner.y.h"
 

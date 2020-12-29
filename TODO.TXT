@@ -8,5 +8,7 @@ X enum support
 X constant support
 X conditional switching support
 X union support
-  transpiler for C
+X C transpiler for unpacking
+  C transpiler for packing
+  add bitmanip operators
   release 1.0.0

@@ -24,10 +24,11 @@ add_executable(biner)
 target_sources(biner
   PRIVATE
     main.c
+    transpile_c.c
     tree.c
     ${BISON_biner-parser_OUTPUTS}
     ${FLEX_biner-scanner_OUTPUTS}
   PUBLIC
-    zone.h
+    c/zone.h
 )
 target_include_directories(biner PRIVATE . ${CMAKE_CURRENT_BINARY_DIR})

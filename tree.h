@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "./zone.h"
+#include "./c/zone.h"
 
 typedef struct biner_tree_expr_t                    biner_tree_expr_t;
 typedef struct biner_tree_struct_member_t           biner_tree_struct_member_t;
@@ -46,22 +46,37 @@ typedef struct biner_tree_expr_t {
 } biner_tree_expr_t;
 
 typedef enum biner_tree_struct_member_type_name_t {
-  BINER_TREE_STRUCT_MEMBER_TYPE_NAME_UINT8,
-  BINER_TREE_STRUCT_MEMBER_TYPE_NAME_UINT16,
-  BINER_TREE_STRUCT_MEMBER_TYPE_NAME_UINT32,
-  BINER_TREE_STRUCT_MEMBER_TYPE_NAME_UINT64,
-  BINER_TREE_STRUCT_MEMBER_TYPE_NAME_INT8,
-  BINER_TREE_STRUCT_MEMBER_TYPE_NAME_INT16,
-  BINER_TREE_STRUCT_MEMBER_TYPE_NAME_INT32,
-  BINER_TREE_STRUCT_MEMBER_TYPE_NAME_INT64,
-  BINER_TREE_STRUCT_MEMBER_TYPE_NAME_FLOAT32,
-  BINER_TREE_STRUCT_MEMBER_TYPE_NAME_FLOAT64,
+  BINER_TREE_STRUCT_MEMBER_TYPE_NAME_LU8,
+  BINER_TREE_STRUCT_MEMBER_TYPE_NAME_LU16,
+  BINER_TREE_STRUCT_MEMBER_TYPE_NAME_LU32,
+  BINER_TREE_STRUCT_MEMBER_TYPE_NAME_LU64,
+  BINER_TREE_STRUCT_MEMBER_TYPE_NAME_LI8,
+  BINER_TREE_STRUCT_MEMBER_TYPE_NAME_LI16,
+  BINER_TREE_STRUCT_MEMBER_TYPE_NAME_LI32,
+  BINER_TREE_STRUCT_MEMBER_TYPE_NAME_LI64,
+  BINER_TREE_STRUCT_MEMBER_TYPE_NAME_BU8,
+  BINER_TREE_STRUCT_MEMBER_TYPE_NAME_BU16,
+  BINER_TREE_STRUCT_MEMBER_TYPE_NAME_BU32,
+  BINER_TREE_STRUCT_MEMBER_TYPE_NAME_BU64,
+  BINER_TREE_STRUCT_MEMBER_TYPE_NAME_BI8,
+  BINER_TREE_STRUCT_MEMBER_TYPE_NAME_BI16,
+  BINER_TREE_STRUCT_MEMBER_TYPE_NAME_BI32,
+  BINER_TREE_STRUCT_MEMBER_TYPE_NAME_BI64,
+  BINER_TREE_STRUCT_MEMBER_TYPE_NAME_F16,
+  BINER_TREE_STRUCT_MEMBER_TYPE_NAME_F32,
+  BINER_TREE_STRUCT_MEMBER_TYPE_NAME_F64,
   BINER_TREE_STRUCT_MEMBER_TYPE_NAME_USER_DECL,
 
   BINER_TREE_STRUCT_MEMBER_TYPE_NAME_MAX_,
 } biner_tree_struct_member_type_name_t;
 
-extern const char* const biner_tree_struct_member_type_name_string_map
+typedef struct biner_tree_struct_member_type_name_meta_t {
+  const char* name;
+  size_t      size;
+} biner_tree_struct_member_type_name_meta_t;
+
+extern const biner_tree_struct_member_type_name_meta_t
+biner_tree_struct_member_type_name_meta_map
   [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_MAX_];
 
 typedef enum biner_tree_struct_member_type_qualifier_t {

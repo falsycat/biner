@@ -8,7 +8,7 @@
 #include <string.h>
 
 #include "./tree.h"
-#include "./zone.h"
+#include "./c/zone.h"
 
 #define ctx (biner_tree_parse_context_)
 
@@ -248,8 +248,13 @@ unqualified_struct_member_type
         YYABORT;
       }
     } else {
-      t->name = BINER_TREE_STRUCT_MEMBER_TYPE_NAME_USER_DECL;
-      t->decl = decl;
+      if (ref(biner_tree_decl_t, decl)->type == BINER_TREE_DECL_TYPE_STRUCT) {
+        t->name = BINER_TREE_STRUCT_MEMBER_TYPE_NAME_USER_DECL;
+        t->decl = decl;
+      } else {
+        yyerrorf("'%s' is not struct", ref(char, $1));
+        YYABORT;
+      }
     }
   }
   ;
@@ -303,7 +308,7 @@ mul_expr
 unary_expr
   : operand
   | '!' operand {
-    $$ = create_operator_($2, BINER_TREE_EXPR_TYPE_OPERATOR_NOT, 0);
+    $$ = create_operator_(0, BINER_TREE_EXPR_TYPE_OPERATOR_NOT, $2);
   }
   ;
 
@@ -443,7 +448,7 @@ static inline bool unstringify_struct_member_type_name_(
     biner_tree_struct_member_type_name_t* name,
     biner_zone_ptr(char)                  str) {
   for (size_t i = 0; i < BINER_TREE_STRUCT_MEMBER_TYPE_NAME_MAX_; ++i) {
-    const char* item = biner_tree_struct_member_type_name_string_map[i];
+    const char* item = biner_tree_struct_member_type_name_meta_map[i].name;
     if (item != NULL && strcmp(ref(char, str), item) == 0) {
       *name = (biner_tree_struct_member_type_name_t) i;
       return true;
