@@ -10,8 +10,15 @@
 #include <string.h>
 
 #include "../c/pack.h"
+#include "../c/result.h"
 #include "../c/unpack.h"
-#include "../c/zone.h"
+
+static inline void* biner_malloc_(size_t sz, void* udata) {
+  (void) udata;
+
+  /* returning NULL can abort the unpacking */
+  return malloc(sz);
+}
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpedantic"
@@ -67,10 +74,11 @@ int main(void) {
     .sex  = SEX_CAT,
     .role = ROLE_STUDENT,
 
-    .property_count = 2,
+    .property_count = 3,
     .properties = (strpair_t[]) {
-      { .key = str_("like"), .value = str_("rat"), },
-      { .key = str_("hate"), .value = str_("dog"), },
+      { .key = str_("like"),  .value = str_("rat"), },
+      { .key = str_("hate"),  .value = str_("dog"), },
+      { .key = str_("empty"), .value = str_(""), },
     },
 
     .student = {
@@ -85,13 +93,18 @@ int main(void) {
   user_t dst = {0};
 
   size_t b = 0;
-  bool completed = false;
-  while (!completed) {
+  biner_result_t result = BINER_RESULT_CONTINUE;
+  while (result == BINER_RESULT_CONTINUE) {
     uint8_t c;
-    completed = user_pack(&pack_ctx, &src, &c);
-    if (user_unpack(&unpack_ctx, &dst, c) != completed) {
+    result = user_pack(&pack_ctx, &src, &c);
+    if (result >= BINER_RESULT_ERROR_THRESHOULD_) {
+      fprintf(stderr, "unexpected error happened\n");
+      return EXIT_FAILURE;
+    }
+
+    if (user_unpack(&unpack_ctx, &dst, c) != result) {
       fprintf(stderr, "fail at the %zu byte: ", b);
-      if (completed) {
+      if (result == BINER_RESULT_COMPLETED) {
         fprintf(stderr, "pack function finsihed but unpack not\n");
       } else {
         fprintf(stderr, "unpack function finsihed but pack not\n");

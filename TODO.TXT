@@ -12,5 +12,5 @@ X C transpiler for unpacking
 X C transpiler for packing
 X setup tests
 X add bitmanip operators
-  handling of overflown or negative expression
+X handling of overflown or negative expression
   release 1.0.0

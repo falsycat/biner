@@ -290,6 +290,7 @@ static void print_struct_member_context_struct_(
   fprintf(p->dst, "size_t count; ");
   fprintf(p->dst, "size_t count_max; ");
   fprintf(p->dst, "size_t byte; ");
+  fprintf(p->dst, "void*  udata; ");
 
   bool require_subctx = false;
   const biner_tree_struct_member_t* itr = m;
@@ -342,6 +343,8 @@ static void print_struct_member_pack_code_each_(
       print_expr_(
         info->p, (const biner_tree_expr_t*) (info->p->zone+info->t->expr));
       fprintf(info->p->dst, "; ");
+      fprintf(info->p->dst,
+        "if (ctx->count_max <= 0) { ++ctx->step; goto CONTINUE; } ");
       fprintf(info->p->dst, "ctx->count = 0; ");
       break;
     case BINER_TREE_STRUCT_MEMBER_TYPE_QUALIFIER_STATIC_ARRAY:
@@ -353,7 +356,7 @@ static void print_struct_member_pack_code_each_(
     if (info->t->name == BINER_TREE_STRUCT_MEMBER_TYPE_NAME_USER_DECL) {
       fprintf(info->p->dst, "ctx->subctx.%s = (", name);
       print_fixed_decl_name_(info->p, dname);
-      fprintf(info->p->dst, CONTEXT_SUFFIX_") {0}; ");
+      fprintf(info->p->dst, CONTEXT_SUFFIX_") { .udata = ctx->udata, }; ");
     }
 
     fprintf(info->p->dst, "body%zu: ", info->m->index);
@@ -377,9 +380,11 @@ static void print_struct_member_pack_code_each_(
   }
 
   if (info->t->name == BINER_TREE_STRUCT_MEMBER_TYPE_NAME_USER_DECL) {
-    fprintf(info->p->dst, "if (");
+    fprintf(info->p->dst, "result = ");
     print_fixed_decl_name_(info->p, dname);
-    fprintf(info->p->dst, "_pack(&ctx->subctx.%s, &s->%s%s, c)) { ", name, name, suffix);
+    fprintf(info->p->dst, "_pack(&ctx->subctx.%s, &s->%s%s, c); ", name, name, suffix);
+    fprintf(info->p->dst,
+      "if (result != BINER_RESULT_COMPLETED) { return result; } else { ");
   } else {
     const char* func = struct_member_type_name_meta_map_[info->t->name].func;
     fprintf(info->p->dst,
@@ -409,11 +414,11 @@ static void print_struct_member_pack_code_each_(
     if (info->t->name == BINER_TREE_STRUCT_MEMBER_TYPE_NAME_USER_DECL) {
       fprintf(info->p->dst, "ctx->subctx.%s = (", name);
       print_fixed_decl_name_(info->p, dname);
-      fprintf(info->p->dst, CONTEXT_SUFFIX_") {0}; ");
+      fprintf(info->p->dst, CONTEXT_SUFFIX_") { .udata = ctx->udata, }; ");
     }
     fprintf(info->p->dst, "ctx->byte = 0; ");
   }
-  fprintf(info->p->dst, "} return false; ");
+  fprintf(info->p->dst, "} return BINER_RESULT_CONTINUE; ");
 
   if (info->m->condition != 0) {
     fprintf(info->p->dst, "} ");
@@ -445,8 +450,12 @@ static void print_struct_member_unpack_code_each_(
         info->p, (const biner_tree_expr_t*) (info->p->zone+info->t->expr));
       fprintf(info->p->dst, "; ");
       fprintf(info->p->dst,
-        "s->%s = malloc(sizeof(*s->%s)*ctx->count_max); ",
+        "if (ctx->count_max <= 0) { ++ctx->step; goto CONTINUE; } ");
+      fprintf(info->p->dst,
+        "s->%s = biner_malloc_(sizeof(*s->%s)*ctx->count_max, ctx->udata); ",
         name, name);
+      fprintf(info->p->dst,
+        "if (s->%s == NULL) { return BINER_RESULT_MEMORY_ERROR; } ", name);
       fprintf(info->p->dst, "ctx->count = 0; ");
       break;
     case BINER_TREE_STRUCT_MEMBER_TYPE_QUALIFIER_STATIC_ARRAY:
@@ -458,7 +467,7 @@ static void print_struct_member_unpack_code_each_(
     if (info->t->name == BINER_TREE_STRUCT_MEMBER_TYPE_NAME_USER_DECL) {
       fprintf(info->p->dst, "ctx->subctx.%s = (", name);
       print_fixed_decl_name_(info->p, dname);
-      fprintf(info->p->dst, CONTEXT_SUFFIX_") {0}; ");
+      fprintf(info->p->dst, CONTEXT_SUFFIX_") { .udata = ctx->udata, }; ");
     }
 
     fprintf(info->p->dst, "body%zu: ", info->m->index);
@@ -482,9 +491,11 @@ static void print_struct_member_unpack_code_each_(
   }
 
   if (info->t->name == BINER_TREE_STRUCT_MEMBER_TYPE_NAME_USER_DECL) {
-    fprintf(info->p->dst, "if (");
+    fprintf(info->p->dst, "result = ");
     print_fixed_decl_name_(info->p, dname);
-    fprintf(info->p->dst, "_unpack(&ctx->subctx.%s, &s->%s%s, c)) { ", name, name, suffix);
+    fprintf(info->p->dst, "_unpack(&ctx->subctx.%s, &s->%s%s, c); ", name, name, suffix);
+    fprintf(info->p->dst,
+      "if (result != BINER_RESULT_COMPLETED) { return result; } else { ");
   } else {
     const char* func = struct_member_type_name_meta_map_[info->t->name].func;
     fprintf(info->p->dst,
@@ -514,11 +525,11 @@ static void print_struct_member_unpack_code_each_(
     if (info->t->name == BINER_TREE_STRUCT_MEMBER_TYPE_NAME_USER_DECL) {
       fprintf(info->p->dst, "ctx->subctx.%s = (", name);
       print_fixed_decl_name_(info->p, dname);
-      fprintf(info->p->dst, CONTEXT_SUFFIX_") {0}; ");
+      fprintf(info->p->dst, CONTEXT_SUFFIX_") { .udata = ctx->udata, }; ");
     }
     fprintf(info->p->dst, "ctx->byte = 0; ");
   }
-  fprintf(info->p->dst, "} return false; ");
+  fprintf(info->p->dst, "} return BINER_RESULT_CONTINUE; ");
 
   if (info->m->condition != 0) {
     fprintf(info->p->dst, "} ");
@@ -536,20 +547,45 @@ static inline void print_struct_member_iteration_code_(
   assert(m != NULL);
   assert(f != NULL);
 
+  bool require_continue   = false;
+  bool require_result_var = false;
+  const biner_tree_struct_member_t* itr = m;
+  while ((uintptr_t) itr != (uintptr_t) p->zone) {
+    const biner_tree_struct_member_type_t* t =
+      (const biner_tree_struct_member_type_t*) (p->zone+itr->type);
+    if (t->qualifier == BINER_TREE_STRUCT_MEMBER_TYPE_QUALIFIER_DYNAMIC_ARRAY) {
+      require_continue = true;
+    }
+    if (t->name == BINER_TREE_STRUCT_MEMBER_TYPE_NAME_USER_DECL) {
+      require_result_var = true;
+    }
+    itr = (const biner_tree_struct_member_t*) (p->zone+itr->prev);
+  }
+
   fprintf(p->dst, "static const void* const steps_[] = { ");
   for (size_t i = 0; i <= m->index; ++i) {
     fprintf(p->dst, "&&init%zu, &&body%zu, ", i, i);
   }
   fprintf(p->dst, "}; ");
 
+  if (require_result_var) {
+    fprintf(p->dst, "biner_result_t result; ");
+  }
+  if (require_continue) {
+    fprintf(p->dst, "CONTINUE: ");
+  }
   fprintf(p->dst,
-    "if (ctx->step >= sizeof(steps_)/sizeof(steps_[0])) return true; ");
+    "if (ctx->step >= sizeof(steps_)/sizeof(steps_[0]))"
+    " return BINER_RESULT_COMPLETED; ");
   fprintf(p->dst, "goto *steps_[ctx->step]; ");
 
   struct_member_each_(p, m, f, SIZE_MAX);
 
   fprintf(p->dst, "NEXT: ");
-  fprintf(p->dst, "return ++ctx->step >= sizeof(steps_)/sizeof(steps_[0]); ");
+  fprintf(p->dst,
+    "return (++ctx->step >= sizeof(steps_)/sizeof(steps_[0]))?"
+    " BINER_RESULT_COMPLETED:"
+    " BINER_RESULT_CONTINUE; ");
 }
 
 static void print_decls_(
@@ -597,7 +633,7 @@ static void print_decls_(
     print_struct_member_context_struct_(p, body, CONTEXT_SUFFIX_);
     print_typedef_footer_(p, name, CONTEXT_SUFFIX_);
 
-    print_func_header_(p, "bool", name, "_pack");
+    print_func_header_(p, "biner_result_t", name, "_pack");
     print_fixed_decl_name_(p, name);
     fprintf(p->dst, CONTEXT_SUFFIX_"* ctx, ");
     fprintf(p->dst, "const ");
@@ -608,7 +644,7 @@ static void print_decls_(
       p, body, &print_struct_member_pack_code_each_);
     fprintf(p->dst, "}\n");
 
-    print_func_header_(p, "bool", name, "_unpack");
+    print_func_header_(p, "biner_result_t", name, "_unpack");
     print_fixed_decl_name_(p, name);
     fprintf(p->dst, CONTEXT_SUFFIX_"* ctx, ");
     print_fixed_decl_name_(p, name);
