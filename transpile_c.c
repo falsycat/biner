@@ -244,7 +244,7 @@ static void print_enum_member_validation_code_(
   assert(m != NULL);
 
   fprintf(p->dst, "return true");
-  while ((uintptr_t*) m != (uintptr_t*) p->zone) {
+  while ((uintptr_t) m != (uintptr_t) p->zone) {
     fprintf(p->dst, " && v == %s", p->zone+m->name);
     m = (const biner_tree_enum_member_t*) (p->zone+m->prev);
   }
@@ -307,18 +307,34 @@ static void print_struct_member_context_struct_(
   fprintf(p->dst, "size_t count_max; ");
   fprintf(p->dst, "size_t byte; ");
 
-  fprintf(p->dst, "union { ");
-  while ((uintptr_t*) m != (uintptr_t*) p->zone) {
+  bool require_subctx = false;
+  const biner_tree_struct_member_t* itr = m;
+  while ((uintptr_t) itr != (uintptr_t) p->zone) {
     const biner_tree_struct_member_type_t* t =
-      (const biner_tree_struct_member_type_t*) (p->zone+m->type);
+      (const biner_tree_struct_member_type_t*) (p->zone+itr->type);
     if (t->name == BINER_TREE_STRUCT_MEMBER_TYPE_NAME_USER_DECL) {
-      const biner_tree_decl_t* d = (const biner_tree_decl_t*) (p->zone+t->decl);
-      print_fixed_decl_name_(p, (const char*) (p->zone+d->name));
-      fprintf(p->dst, "%s %s; ", suffix, p->zone+m->name);
+      require_subctx = true;
     }
-    m = (const biner_tree_struct_member_t*) (p->zone+m->prev);
+    itr = (const biner_tree_struct_member_t*) (p->zone+itr->prev);
   }
-  fprintf(p->dst, "} subctx; ");
+
+  if (require_subctx) {
+    fprintf(p->dst, "union { ");
+
+    itr = m;
+    while ((uintptr_t) itr != (uintptr_t) p->zone) {
+      const biner_tree_struct_member_type_t* t =
+        (const biner_tree_struct_member_type_t*) (p->zone+itr->type);
+      if (t->name == BINER_TREE_STRUCT_MEMBER_TYPE_NAME_USER_DECL) {
+        const biner_tree_decl_t* d = (const biner_tree_decl_t*) (p->zone+t->decl);
+        print_fixed_decl_name_(p, (const char*) (p->zone+d->name));
+        fprintf(p->dst, "%s %s; ", suffix, p->zone+itr->name);
+      }
+      itr = (const biner_tree_struct_member_t*) (p->zone+itr->prev);
+    }
+
+    fprintf(p->dst, "} subctx; ");
+  }
 }
 
 static void print_struct_member_pack_code_each_(
