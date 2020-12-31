@@ -39,6 +39,27 @@ static const struct_member_type_name_meta_t struct_member_type_name_meta_map_
   [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_F64]  = {"f64", "double"},
 };
 
+static const char* const expr_operator_string_map_
+    [BINER_TREE_EXPR_TYPE_OPERATOR_MAX_] = {
+  [BINER_TREE_EXPR_TYPE_OPERATOR_EQUAL]         = "==",
+  [BINER_TREE_EXPR_TYPE_OPERATOR_NEQUAL]        = "!=",
+  [BINER_TREE_EXPR_TYPE_OPERATOR_GREATER_EQUAL] = ">=",
+  [BINER_TREE_EXPR_TYPE_OPERATOR_LESS_EQUAL]    = "<=",
+  [BINER_TREE_EXPR_TYPE_OPERATOR_GREATER]       = ">",
+  [BINER_TREE_EXPR_TYPE_OPERATOR_LESS]          = "<",
+  [BINER_TREE_EXPR_TYPE_OPERATOR_AND]           = "&&",
+  [BINER_TREE_EXPR_TYPE_OPERATOR_OR]            = "||",
+  [BINER_TREE_EXPR_TYPE_OPERATOR_NOT]           = "!",
+  [BINER_TREE_EXPR_TYPE_OPERATOR_ADD]           = "+",
+  [BINER_TREE_EXPR_TYPE_OPERATOR_SUB]           = "-",
+  [BINER_TREE_EXPR_TYPE_OPERATOR_MUL]           = "*",
+  [BINER_TREE_EXPR_TYPE_OPERATOR_DIV]           = "/",
+  [BINER_TREE_EXPR_TYPE_OPERATOR_BIT_AND]       = "&",
+  [BINER_TREE_EXPR_TYPE_OPERATOR_BIT_OR]        = "|",
+  [BINER_TREE_EXPR_TYPE_OPERATOR_BIT_NOT]       = "~",
+  [BINER_TREE_EXPR_TYPE_OPERATOR_BIT_XOR]       = "^",
+};
+
 typedef struct struct_member_info_t {
   const biner_transpile_param_t*         p;
   const biner_tree_struct_member_t*      m;
@@ -160,16 +181,6 @@ static void print_expr_(
   assert(p != NULL);
   assert(e != NULL);
 
-# define print_operator_(op) do {  \
-    if (e->operands.l) {  \
-      print_expr_(p, (const biner_tree_expr_t*) (p->zone+e->operands.l));  \
-    }  \
-    fprintf(p->dst, op);  \
-    if (e->operands.r) {  \
-      print_expr_(p, (const biner_tree_expr_t*) (p->zone+e->operands.r));  \
-    }  \
-  } while (0)
-
   fprintf(p->dst, "(");
 
   switch (e->type) {
@@ -181,44 +192,17 @@ static void print_expr_(
     print_struct_member_reference_(
       p, (const biner_tree_struct_member_reference_t*) (p->zone+e->r));
     break;
-  case BINER_TREE_EXPR_TYPE_OPERATOR_EQUAL:
-    print_operator_("==");
-    break;
-  case BINER_TREE_EXPR_TYPE_OPERATOR_NEQUAL:
-    print_operator_("!=");
-    break;
-  case BINER_TREE_EXPR_TYPE_OPERATOR_GREATER_EQUAL:
-    print_operator_(">=");
-    break;
-  case BINER_TREE_EXPR_TYPE_OPERATOR_LESS_EQUAL:
-    print_operator_("<=");
-    break;
-  case BINER_TREE_EXPR_TYPE_OPERATOR_GREATER:
-    print_operator_(">");
-    break;
-  case BINER_TREE_EXPR_TYPE_OPERATOR_LESS:
-    print_operator_("<");
-    break;
-  case BINER_TREE_EXPR_TYPE_OPERATOR_NOT:
-    print_operator_("!");
-    break;
-  case BINER_TREE_EXPR_TYPE_OPERATOR_ADD:
-    print_operator_("+");
-    break;
-  case BINER_TREE_EXPR_TYPE_OPERATOR_SUB:
-    print_operator_("-");
-    break;
-  case BINER_TREE_EXPR_TYPE_OPERATOR_MUL:
-    print_operator_("*");
-    break;
-  case BINER_TREE_EXPR_TYPE_OPERATOR_DIV:
-    print_operator_("/");
-    break;
+  default:
+    if (e->operands.l) {
+      print_expr_(p, (const biner_tree_expr_t*) (p->zone+e->operands.l));
+    }
+    fprintf(p->dst, expr_operator_string_map_[e->type]);
+    if (e->operands.r) {
+      print_expr_(p, (const biner_tree_expr_t*) (p->zone+e->operands.r));
+    }
   }
 
   fprintf(p->dst, ")");
-
-# undef print_operator_
 }
 
 static void print_enum_member_decls_(

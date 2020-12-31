@@ -90,7 +90,7 @@ resolve_constant_(
   uintptr_t ptr;
 }
 
-%token EQUAL NEQUAL LESS_EQUAL GREATER_EQUAL
+%token EQUAL NEQUAL LESS_EQUAL GREATER_EQUAL AND OR BIT_LSHIFT BIT_RSHIFT
 %token CONST ENUM STRUCT UNION
 %token <ptr> IDENT
 %token <i>   INTEGER;
@@ -99,7 +99,10 @@ resolve_constant_(
 %type <ptr> enum_member_list enum_member
 %type <ptr> struct_member_list struct_member union_member_list union_member
 %type <ptr> struct_member_type array_struct_member_type unqualified_struct_member_type
-%type <ptr> expr compare_expr add_expr mul_expr unary_expr operand
+
+%type <ptr> expr or_expr and_expr bit_or_expr bit_xor_expr
+%type <ptr> bit_and_expr equality_expr relational_expr add_expr
+%type <ptr> mul_expr unary_expr operand
 
 %start decl_list
 
@@ -260,27 +263,66 @@ unqualified_struct_member_type
   ;
 
 expr
-  : compare_expr
+  : or_expr
   ;
 
-compare_expr
-  : add_expr
-  | compare_expr EQUAL add_expr {
+or_expr
+  : and_expr
+  | or_expr OR and_expr {
+    $$ = create_operator_($1, BINER_TREE_EXPR_TYPE_OPERATOR_OR, $3);
+  }
+  ;
+
+and_expr
+  : bit_or_expr
+  | and_expr AND bit_or_expr {
+    $$ = create_operator_($1, BINER_TREE_EXPR_TYPE_OPERATOR_AND, $3);
+  }
+  ;
+
+bit_or_expr
+  : bit_xor_expr
+  | bit_or_expr '|' bit_xor_expr {
+    $$ = create_operator_($1, BINER_TREE_EXPR_TYPE_OPERATOR_BIT_OR, $3);
+  }
+  ;
+
+bit_xor_expr
+  : bit_and_expr
+  | bit_xor_expr '^' bit_and_expr {
+    $$ = create_operator_($1, BINER_TREE_EXPR_TYPE_OPERATOR_BIT_XOR, $3);
+  }
+  ;
+
+bit_and_expr
+  : equality_expr
+  | bit_and_expr '&' equality_expr {
+    $$ = create_operator_($1, BINER_TREE_EXPR_TYPE_OPERATOR_BIT_AND, $3);
+  }
+  ;
+
+equality_expr
+  : relational_expr
+  | equality_expr EQUAL relational_expr {
     $$ = create_operator_($1, BINER_TREE_EXPR_TYPE_OPERATOR_EQUAL, $3);
   }
-  | compare_expr NEQUAL add_expr {
+  | equality_expr NEQUAL relational_expr {
     $$ = create_operator_($1, BINER_TREE_EXPR_TYPE_OPERATOR_NEQUAL, $3);
   }
-  | compare_expr '>' add_expr {
+  ;
+
+relational_expr
+  : add_expr
+  | relational_expr '>' add_expr {
     $$ = create_operator_($1, BINER_TREE_EXPR_TYPE_OPERATOR_GREATER, $3);
   }
-  | compare_expr '<' add_expr {
+  | relational_expr '<' add_expr {
     $$ = create_operator_($1, BINER_TREE_EXPR_TYPE_OPERATOR_LESS, $3);
   }
-  | compare_expr GREATER_EQUAL add_expr {
+  | relational_expr GREATER_EQUAL add_expr {
     $$ = create_operator_($1, BINER_TREE_EXPR_TYPE_OPERATOR_GREATER_EQUAL, $3);
   }
-  | compare_expr LESS_EQUAL add_expr {
+  | relational_expr LESS_EQUAL add_expr {
     $$ = create_operator_($1, BINER_TREE_EXPR_TYPE_OPERATOR_LESS_EQUAL, $3);
   }
   ;
@@ -309,6 +351,9 @@ unary_expr
   : operand
   | '!' operand {
     $$ = create_operator_(0, BINER_TREE_EXPR_TYPE_OPERATOR_NOT, $2);
+  }
+  | '~' operand {
+    $$ = create_operator_(0, BINER_TREE_EXPR_TYPE_OPERATOR_BIT_NOT, $2);
   }
   ;
 
