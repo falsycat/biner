@@ -9,8 +9,7 @@
 
 #include "./tree.h"
 
-#define PACK_CONTEXT_SUFFIX_   "_pack_context_t"
-#define UNPACK_CONTEXT_SUFFIX_ "_unpack_context_t"
+#define CONTEXT_SUFFIX_ "_pack_context_t"
 
 typedef struct struct_member_type_name_meta_t {
   const char* func;
@@ -322,11 +321,16 @@ static void print_struct_member_context_struct_(
   fprintf(p->dst, "} subctx; ");
 }
 
-static void print_struct_member_unpack_code_each_(
+static void print_struct_member_pack_code_each_(
     const struct_member_info_t* info) {
   assert(info != NULL);
 
   const char* name = (const char*) (info->p->zone+info->m->name);
+
+  /* only available when info->p->name == USER_DECL */
+  const biner_tree_decl_t* d =
+    (const biner_tree_decl_t*) (info->p->zone+info->t->decl);
+  const char* dname = (const char*) (info->p->zone+d->name);
 
   if (!info->union_member || info->union_begin) {
     fprintf(info->p->dst, "init%zu: ", info->m->index);
@@ -338,9 +342,6 @@ static void print_struct_member_unpack_code_each_(
       print_expr_(
         info->p, (const biner_tree_expr_t*) (info->p->zone+info->t->expr));
       fprintf(info->p->dst, "; ");
-      fprintf(info->p->dst,
-        "s->%s = malloc(sizeof(*s->%s)*ctx->count_max); ",
-        name, name);
       fprintf(info->p->dst, "ctx->count = 0; ");
       break;
     case BINER_TREE_STRUCT_MEMBER_TYPE_QUALIFIER_STATIC_ARRAY:
@@ -348,6 +349,11 @@ static void print_struct_member_unpack_code_each_(
       break;
     default:
       ;
+    }
+    if (info->t->name == BINER_TREE_STRUCT_MEMBER_TYPE_NAME_USER_DECL) {
+      fprintf(info->p->dst, "ctx->subctx.%s = (", name);
+      print_fixed_decl_name_(info->p, dname);
+      fprintf(info->p->dst, CONTEXT_SUFFIX_") {0}; ");
     }
 
     fprintf(info->p->dst, "body%zu: ", info->m->index);
@@ -371,33 +377,41 @@ static void print_struct_member_unpack_code_each_(
   }
 
   if (info->t->name == BINER_TREE_STRUCT_MEMBER_TYPE_NAME_USER_DECL) {
-    const biner_tree_decl_t* d =
-      (const biner_tree_decl_t*) (info->p->zone+info->t->decl);
-
     fprintf(info->p->dst, "if (");
-    print_fixed_decl_name_(info->p, (const char*) (info->p->zone+d->name));
-    fprintf(info->p->dst, "_unpack(&ctx->subctx.%s, &s->%s%s, c)) { ", name, name, suffix);
+    print_fixed_decl_name_(info->p, dname);
+    fprintf(info->p->dst, "_pack(&ctx->subctx.%s, &s->%s%s, c)) { ", name, name, suffix);
   } else {
     const char* func = struct_member_type_name_meta_map_[info->t->name].func;
     fprintf(info->p->dst,
-      "biner_unpack_%s(&s->%s%s, c, ctx->byte); ", func, name, suffix);
+      "biner_pack_%s(&s->%s%s, c, ctx->byte); ", func, name, suffix);
     const size_t sz = biner_tree_struct_member_type_name_meta_map[info->t->name].size;
     fprintf(info->p->dst, "if (++ctx->byte >= %zu) { ", sz);
   }
 
+  bool reset = false;
   switch (info->t->qualifier) {
   case BINER_TREE_STRUCT_MEMBER_TYPE_QUALIFIER_DYNAMIC_ARRAY:
     fprintf(info->p->dst,
       "if (++ctx->count >= ctx->count_max) goto NEXT; ctx->byte = 0; ");
+    reset = true;
     break;
   case BINER_TREE_STRUCT_MEMBER_TYPE_QUALIFIER_STATIC_ARRAY:
     fprintf(info->p->dst, "if (++ctx->count >= ");
     print_expr_(
       info->p, (const biner_tree_expr_t*) (info->p->zone+info->t->expr));
     fprintf(info->p->dst, ") goto NEXT; ctx->byte = 0; ");
+    reset = true;
     break;
   default:
     fprintf(info->p->dst, "goto NEXT; ");
+  }
+  if (reset) {
+    if (info->t->name == BINER_TREE_STRUCT_MEMBER_TYPE_NAME_USER_DECL) {
+      fprintf(info->p->dst, "ctx->subctx.%s = (", name);
+      print_fixed_decl_name_(info->p, dname);
+      fprintf(info->p->dst, CONTEXT_SUFFIX_") {0}; ");
+    }
+    fprintf(info->p->dst, "ctx->byte = 0; ");
   }
   fprintf(info->p->dst, "} return false; ");
 
@@ -409,10 +423,118 @@ static void print_struct_member_unpack_code_each_(
   }
 }
 
-static void print_struct_member_unpack_code_(
-    const biner_transpile_param_t* p, const biner_tree_struct_member_t* m) {
+static void print_struct_member_unpack_code_each_(
+    const struct_member_info_t* info) {
+  assert(info != NULL);
+
+  const char* name = (const char*) (info->p->zone+info->m->name);
+
+  /* only available when info->p->name == USER_DECL */
+  const biner_tree_decl_t* d =
+    (const biner_tree_decl_t*) (info->p->zone+info->t->decl);
+  const char* dname = (const char*) (info->p->zone+d->name);
+
+  if (!info->union_member || info->union_begin) {
+    fprintf(info->p->dst, "init%zu: ", info->m->index);
+    fprintf(info->p->dst, "++ctx->step; ctx->byte = 0; ");
+
+    switch (info->t->qualifier) {
+    case BINER_TREE_STRUCT_MEMBER_TYPE_QUALIFIER_DYNAMIC_ARRAY:
+      fprintf(info->p->dst, "ctx->count_max = ");
+      print_expr_(
+        info->p, (const biner_tree_expr_t*) (info->p->zone+info->t->expr));
+      fprintf(info->p->dst, "; ");
+      fprintf(info->p->dst,
+        "s->%s = malloc(sizeof(*s->%s)*ctx->count_max); ",
+        name, name);
+      fprintf(info->p->dst, "ctx->count = 0; ");
+      break;
+    case BINER_TREE_STRUCT_MEMBER_TYPE_QUALIFIER_STATIC_ARRAY:
+      fprintf(info->p->dst, "ctx->count = 0; ");
+      break;
+    default:
+      ;
+    }
+    if (info->t->name == BINER_TREE_STRUCT_MEMBER_TYPE_NAME_USER_DECL) {
+      fprintf(info->p->dst, "ctx->subctx.%s = (", name);
+      print_fixed_decl_name_(info->p, dname);
+      fprintf(info->p->dst, CONTEXT_SUFFIX_") {0}; ");
+    }
+
+    fprintf(info->p->dst, "body%zu: ", info->m->index);
+  }
+
+  if (info->m->condition != 0) {
+    fprintf(info->p->dst, "if (");
+    print_expr_(
+      info->p, (const biner_tree_expr_t*) (info->p->zone+info->m->condition));
+    fprintf(info->p->dst, ") {");
+  }
+
+  const char* suffix = "";
+  switch (info->t->qualifier) {
+  case BINER_TREE_STRUCT_MEMBER_TYPE_QUALIFIER_DYNAMIC_ARRAY:
+  case BINER_TREE_STRUCT_MEMBER_TYPE_QUALIFIER_STATIC_ARRAY:
+    suffix = "[ctx->count]";
+    break;
+  default:
+    ;
+  }
+
+  if (info->t->name == BINER_TREE_STRUCT_MEMBER_TYPE_NAME_USER_DECL) {
+    fprintf(info->p->dst, "if (");
+    print_fixed_decl_name_(info->p, dname);
+    fprintf(info->p->dst, "_unpack(&ctx->subctx.%s, &s->%s%s, c)) { ", name, name, suffix);
+  } else {
+    const char* func = struct_member_type_name_meta_map_[info->t->name].func;
+    fprintf(info->p->dst,
+      "biner_unpack_%s(&s->%s%s, c, ctx->byte); ", func, name, suffix);
+    const size_t sz = biner_tree_struct_member_type_name_meta_map[info->t->name].size;
+    fprintf(info->p->dst, "if (++ctx->byte >= %zu) { ", sz);
+  }
+
+  bool reset = false;
+  switch (info->t->qualifier) {
+  case BINER_TREE_STRUCT_MEMBER_TYPE_QUALIFIER_DYNAMIC_ARRAY:
+    fprintf(info->p->dst,
+      "if (++ctx->count >= ctx->count_max) goto NEXT; ");
+    reset = true;
+    break;
+  case BINER_TREE_STRUCT_MEMBER_TYPE_QUALIFIER_STATIC_ARRAY:
+    fprintf(info->p->dst, "if (++ctx->count >= ");
+    print_expr_(
+      info->p, (const biner_tree_expr_t*) (info->p->zone+info->t->expr));
+    fprintf(info->p->dst, ") goto NEXT; ");
+    reset = true;
+    break;
+  default:
+    fprintf(info->p->dst, "goto NEXT; ");
+  }
+  if (reset) {
+    if (info->t->name == BINER_TREE_STRUCT_MEMBER_TYPE_NAME_USER_DECL) {
+      fprintf(info->p->dst, "ctx->subctx.%s = (", name);
+      print_fixed_decl_name_(info->p, dname);
+      fprintf(info->p->dst, CONTEXT_SUFFIX_") {0}; ");
+    }
+    fprintf(info->p->dst, "ctx->byte = 0; ");
+  }
+  fprintf(info->p->dst, "} return false; ");
+
+  if (info->m->condition != 0) {
+    fprintf(info->p->dst, "} ");
+    if (!info->union_member || info->union_end) {
+      fprintf(info->p->dst, "goto NEXT; ");
+    }
+  }
+}
+
+static inline void print_struct_member_iteration_code_(
+    const biner_transpile_param_t*    p,
+    const biner_tree_struct_member_t* m,
+    struct_member_each_func_t         f) {
   assert(p != NULL);
   assert(m != NULL);
+  assert(f != NULL);
 
   fprintf(p->dst, "static const void* const steps_[] = { ");
   for (size_t i = 0; i <= m->index; ++i) {
@@ -424,7 +546,7 @@ static void print_struct_member_unpack_code_(
     "if (ctx->step >= sizeof(steps_)/sizeof(steps_[0])) return true; ");
   fprintf(p->dst, "goto *steps_[ctx->step]; ");
 
-  struct_member_each_(p, m, print_struct_member_unpack_code_each_, SIZE_MAX);
+  struct_member_each_(p, m, f, SIZE_MAX);
 
   fprintf(p->dst, "NEXT: ");
   fprintf(p->dst, "return ++ctx->step >= sizeof(steps_)/sizeof(steps_[0]); ");
@@ -471,21 +593,29 @@ static void print_decls_(
     struct_member_each_(p, body, print_struct_member_decl_, SIZE_MAX);
     print_typedef_footer_(p, name, "_t");
 
-    print_typedef_header_(p, "struct", name, PACK_CONTEXT_SUFFIX_);
-    print_struct_member_context_struct_(p, body, PACK_CONTEXT_SUFFIX_);
-    print_typedef_footer_(p, name, PACK_CONTEXT_SUFFIX_);
+    print_typedef_header_(p, "struct", name, CONTEXT_SUFFIX_);
+    print_struct_member_context_struct_(p, body, CONTEXT_SUFFIX_);
+    print_typedef_footer_(p, name, CONTEXT_SUFFIX_);
 
-    print_typedef_header_(p, "struct", name, UNPACK_CONTEXT_SUFFIX_);
-    print_struct_member_context_struct_(p, body, UNPACK_CONTEXT_SUFFIX_);
-    print_typedef_footer_(p, name, UNPACK_CONTEXT_SUFFIX_);
+    print_func_header_(p, "bool", name, "_pack");
+    print_fixed_decl_name_(p, name);
+    fprintf(p->dst, CONTEXT_SUFFIX_"* ctx, ");
+    fprintf(p->dst, "const ");
+    print_fixed_decl_name_(p, name);
+    fprintf(p->dst, "_t* s, ");
+    fprintf(p->dst, "uint8_t* c) { ");
+    print_struct_member_iteration_code_(
+      p, body, &print_struct_member_pack_code_each_);
+    fprintf(p->dst, "}\n");
 
     print_func_header_(p, "bool", name, "_unpack");
     print_fixed_decl_name_(p, name);
-    fprintf(p->dst, "_unpack_context_t* ctx, ");
+    fprintf(p->dst, CONTEXT_SUFFIX_"* ctx, ");
     print_fixed_decl_name_(p, name);
     fprintf(p->dst, "_t* s, ");
     fprintf(p->dst, "uint8_t c) { ");
-    print_struct_member_unpack_code_(p, body);
+    print_struct_member_iteration_code_(
+      p, body, &print_struct_member_unpack_code_each_);
     fprintf(p->dst, "}\n");
   } break;
   }

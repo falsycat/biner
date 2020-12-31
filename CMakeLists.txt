@@ -29,6 +29,8 @@ target_sources(biner
     ${BISON_biner-parser_OUTPUTS}
     ${FLEX_biner-scanner_OUTPUTS}
   PUBLIC
+    c/pack.h
+    c/unpack.h
     c/zone.h
 )
 target_include_directories(biner PRIVATE . ${CMAKE_CURRENT_BINARY_DIR})

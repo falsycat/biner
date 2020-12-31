@@ -8,7 +8,7 @@
 # define unpack_Nbit_(N)  \
     static inline void biner_unpack_l##N(int##N##_t* v, uint8_t c, size_t s) {  \
       assert(s < N/8);  \
-      *v = (*v & (0xff << (s*8))) | (c << (s*8));  \
+      *v = (*v & ~((uint##N##_t) 0xff << (s*8))) | (c << (s*8));  \
     } \
     static inline void biner_unpack_b##N(int##N##_t* v, uint8_t c, size_t s) {  \
       assert(s < N/8);  \
@@ -18,7 +18,7 @@
 # define unpack_Nbit_(N)  \
     static inline void biner_unpack_b##N(int##N##_t* v, uint8_t c, size_t s) {  \
       assert(s < N/8);  \
-      *v = (*v & (0xff << (s*8))) | (c << (s*8));  \
+      *v = (*v & ~((uint##N_t) 0xff << (s*8))) | (c << (s*8));  \
     } \
     static inline void biner_unpack_l##N(int##N##_t* v, uint8_t c, size_t s) {  \
       assert(s < N/8);  \
