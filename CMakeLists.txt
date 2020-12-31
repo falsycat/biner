@@ -34,3 +34,25 @@ target_sources(biner
     c/zone.h
 )
 target_include_directories(biner PRIVATE . ${CMAKE_CURRENT_BINARY_DIR})
+
+function(target_biner_sources target)
+  cmake_parse_arguments("FUNC" "" "OUTPUT" "SOURCES" ${ARGN})
+  file(MAKE_DIRECTORY "${FUNC_OUTPUT}")
+
+  foreach(path ${FUNC_SOURCES})
+    get_filename_component(basename "${path}" NAME)
+    set(in  "${CMAKE_CURRENT_SOURCE_DIR}/${path}")
+    set(out "${FUNC_OUTPUT}/${basename}.h")
+    add_custom_command(
+        OUTPUT  "${out}"
+        COMMAND $<TARGET_FILE:biner> < "${in}" > "${out}"
+        DEPENDS "${in}" biner
+        COMMENT "transpiling ${in} to C"
+        VERBATIM)
+    target_sources(${target} PRIVATE "${out}")
+  endforeach()
+endfunction()
+
+if (BUILD_TESTING)
+  add_subdirectory(test)
+endif()

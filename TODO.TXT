@@ -10,7 +10,7 @@ X conditional switching support
 X union support
 X C transpiler for unpacking
 X C transpiler for packing
-  setup tests
+X setup tests
   handling of overflown or negative expression
   add bitmanip operators
   release 1.0.0

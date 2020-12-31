@@ -1,0 +1,49 @@
+struct string_t {
+  lu64     len;
+  lu8[len] ptr;
+};
+struct strpair_t {
+  string_t key;
+  string_t value;
+};
+
+enum sex_t {
+  SEX_MALE   = 0x0,
+  SEX_FEMALE = 0x1,
+  SEX_CAT    = 0x2,
+};
+
+enum role_t {
+  ROLE_TEACHER = 0x0,
+  ROLE_STUDENT = 0x1,
+};
+
+struct date_t {
+  lu8 mon;
+  lu8 day;
+};
+
+struct teacher_t {
+  lu32   salary;
+  date_t payday;
+};
+
+struct student_t {
+  lu8[10] scores;
+  lu8     absents;
+};
+
+struct user_t {
+  string_t name;
+  lu8      age;
+  lu8      sex;   /* sex_t */
+  lu8      role;  /* role_t */
+
+  lu16                      property_count;
+  strpair_t[property_count] properties;
+
+  union {
+    (role == ROLE_TEACHER) teacher_t teacher;
+    (role == ROLE_STUDENT) student_t student;
+  };
+};
