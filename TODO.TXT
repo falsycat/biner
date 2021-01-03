@@ -1,4 +1,5 @@
 X resolve all TODO in source codes
 X remove f16/f32/f64 types
-  partial code generation for C (divide decls and functions)
+X partial code generation for C (divide decls and functions)
+  update README
   release v1.0.1

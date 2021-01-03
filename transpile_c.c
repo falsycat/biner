@@ -6,6 +6,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "./tree.h"
 
@@ -594,62 +595,75 @@ static void print_decls_(
     print_decls_(p, (const biner_tree_decl_t*) (p->zone+d->prev));
   }
 
+  const bool only_type = biner_transpile_is_option_enabled(p, "--only-type");
+  const bool only_func = biner_transpile_is_option_enabled(p, "--only-func");
+
+  const bool type = only_type || (!only_type && !only_func);
+  const bool func = only_func || (!only_type && !only_func);
+
   const char* name = (const char*) (p->zone+d->name);
 
   switch (d->type) {
   case BINER_TREE_DECL_TYPE_CONST: {
     const biner_tree_expr_t* body =
       (const biner_tree_expr_t*) (p->zone+d->const_);
-
-    fprintf(p->dst, "#define %s (", name);
-    print_expr_(p, body);
-    fprintf(p->dst, ")\n");
+    if (type) {
+      fprintf(p->dst, "#define %s (", name);
+      print_expr_(p, body);
+      fprintf(p->dst, ")\n");
+    }
   } break;
   case BINER_TREE_DECL_TYPE_ENUM: {
     const biner_tree_enum_member_t* body =
       (const biner_tree_enum_member_t*) (p->zone+d->enum_);
-
-    print_typedef_header_(p, "enum", name, "_t");
-    print_enum_member_decls_(p, body);
-    print_typedef_footer_(p, name, "_t");
-
-    print_func_header_(p, "bool", name, "_validate");
-    fprintf(p->dst, "uintmax_t v) { ");
-    print_enum_member_validation_code_(p, body);
-    fprintf(p->dst, "}\n");
+    if (type) {
+      print_typedef_header_(p, "enum", name, "_t");
+      print_enum_member_decls_(p, body);
+      print_typedef_footer_(p, name, "_t");
+    }
+    if (func) {
+      print_func_header_(p, "bool", name, "_validate");
+      fprintf(p->dst, "uintmax_t v) { ");
+      print_enum_member_validation_code_(p, body);
+      fprintf(p->dst, "}\n");
+    }
   } break;
   case BINER_TREE_DECL_TYPE_STRUCT: {
     const biner_tree_struct_member_t* body =
       (const biner_tree_struct_member_t*) (p->zone+d->struct_);
-
-    print_typedef_header_(p, "struct", name, "_t");
-    struct_member_each_(p, body, print_struct_member_decl_, SIZE_MAX);
-    print_typedef_footer_(p, name, "_t");
-
-    print_typedef_header_(p, "struct", name, CONTEXT_SUFFIX_);
-    print_struct_member_context_struct_(p, body, CONTEXT_SUFFIX_);
-    print_typedef_footer_(p, name, CONTEXT_SUFFIX_);
-
-    print_func_header_(p, "biner_result_t", name, "_pack");
-    print_fixed_decl_name_(p, name);
-    fprintf(p->dst, CONTEXT_SUFFIX_"* ctx, ");
-    fprintf(p->dst, "const ");
-    print_fixed_decl_name_(p, name);
-    fprintf(p->dst, "_t* s, ");
-    fprintf(p->dst, "uint8_t* c) { ");
-    print_struct_member_iteration_code_(
-      p, body, &print_struct_member_pack_code_each_);
-    fprintf(p->dst, "}\n");
-
-    print_func_header_(p, "biner_result_t", name, "_unpack");
-    print_fixed_decl_name_(p, name);
-    fprintf(p->dst, CONTEXT_SUFFIX_"* ctx, ");
-    print_fixed_decl_name_(p, name);
-    fprintf(p->dst, "_t* s, ");
-    fprintf(p->dst, "uint8_t c) { ");
-    print_struct_member_iteration_code_(
-      p, body, &print_struct_member_unpack_code_each_);
-    fprintf(p->dst, "}\n");
+    if (type) {
+      print_typedef_header_(p, "struct", name, "_t");
+      struct_member_each_(p, body, print_struct_member_decl_, SIZE_MAX);
+      print_typedef_footer_(p, name, "_t");
+    }
+    if (type) {
+      print_typedef_header_(p, "struct", name, CONTEXT_SUFFIX_);
+      print_struct_member_context_struct_(p, body, CONTEXT_SUFFIX_);
+      print_typedef_footer_(p, name, CONTEXT_SUFFIX_);
+    }
+    if (func) {
+      print_func_header_(p, "biner_result_t", name, "_pack");
+      print_fixed_decl_name_(p, name);
+      fprintf(p->dst, CONTEXT_SUFFIX_"* ctx, ");
+      fprintf(p->dst, "const ");
+      print_fixed_decl_name_(p, name);
+      fprintf(p->dst, "_t* s, ");
+      fprintf(p->dst, "uint8_t* c) { ");
+      print_struct_member_iteration_code_(
+        p, body, &print_struct_member_pack_code_each_);
+      fprintf(p->dst, "}\n");
+    }
+    if (func) {
+      print_func_header_(p, "biner_result_t", name, "_unpack");
+      print_fixed_decl_name_(p, name);
+      fprintf(p->dst, CONTEXT_SUFFIX_"* ctx, ");
+      print_fixed_decl_name_(p, name);
+      fprintf(p->dst, "_t* s, ");
+      fprintf(p->dst, "uint8_t c) { ");
+      print_struct_member_iteration_code_(
+        p, body, &print_struct_member_unpack_code_each_);
+      fprintf(p->dst, "}\n");
+    }
   } break;
   }
 }
