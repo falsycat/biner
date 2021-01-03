@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "./c/zone.h"
+#include "./zone.h"
 
 #include "generated/biner.y.h"
 

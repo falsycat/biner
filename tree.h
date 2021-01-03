@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "./c/zone.h"
+#include "./zone.h"
 
 typedef struct biner_tree_expr_t                    biner_tree_expr_t;
 typedef struct biner_tree_struct_member_t           biner_tree_struct_member_t;

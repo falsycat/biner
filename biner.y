@@ -8,7 +8,7 @@
 #include <string.h>
 
 #include "./tree.h"
-#include "./c/zone.h"
+#include "./zone.h"
 
 #define ctx (biner_tree_parse_context_)
 
