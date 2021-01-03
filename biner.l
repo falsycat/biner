@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <inttypes.h>
+#include <stdbool.h>
 
 #include "./tree.h"
 #include "./zone.h"
@@ -11,7 +12,7 @@
 #include "generated/biner.y.h"
 
 static inline biner_zone_ptr(char) strnew_(void);
-static inline intmax_t parse_int_(int base);
+static inline bool parse_int_(intmax_t* v, int base);
 static inline void count_(void);
 %}
 
@@ -21,7 +22,8 @@ H [0-9A-Fa-f]
 
 %%
 
-"//".* count_();
+[ \t\r\n]+ count_();
+"//".*     count_();
 [/][*][^*]*[*]+([^*/][^*]*[*]+)*[/] count_(); /* TODO: detect unterminated comment */
 
 "==" { count_(); return EQUAL; }
@@ -40,27 +42,24 @@ H [0-9A-Fa-f]
 
 {I}({I}|{D})* { yylval.ptr = strnew_(); count_(); return IDENT; }
 
-{D}+      { yylval.i = parse_int_(10); count_(); return INTEGER; }
-0[xX]{H}+ { yylval.i = parse_int_(16); count_(); return INTEGER; }
+{D}+      { return parse_int_(&yylval.i, 10)? INTEGER: OVERFLOWN_INTEGER; }
+0[xX]{H}+ { return parse_int_(&yylval.i, 16)? INTEGER: OVERFLOWN_INTEGER; }
 
-[\+\-\*\/\!\=\<\>\.\(\)[\]\{\}\;\,\&\|\~\^] { count_(); return yytext[0]; }
-
-(.|\n) count_();
+. { count_(); return yytext[0]; }
 
 %%
 static inline uintptr_t strnew_(void) {
   return biner_zone_strnew(&biner_tree_parse_context_.zone, yytext);
 }
-static inline intmax_t parse_int_(int base) {
-  char*          end = NULL;
-  const intmax_t v   = strtoimax(yytext, &end, base);
+static inline bool parse_int_(intmax_t* v, int base) {
+  assert(v != NULL);
 
-  /* TODO: replace asserts with throwing error */
-  assert((v != INTMAX_MIN && v != INTMAX_MAX) || errno != ERANGE);
-  assert(INT64_MIN <= v && v <= INT64_MAX);
-  assert(end != NULL && *end == 0);
-
-  return v;
+  char* end = NULL;
+  *v = strtoimax(yytext, &end, base);
+  return
+    ((*v != INTMAX_MIN && *v != INTMAX_MAX) || errno != ERANGE) &&
+    (INT64_MIN <= *v && *v <= INT64_MAX) &&
+    (end != NULL && *end == 0);
 }
 static inline void count_(void) {
   const char* s = yytext;

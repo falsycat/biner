@@ -90,10 +90,12 @@ resolve_constant_(
   uintptr_t ptr;
 }
 
+%token OVERFLOWN_INTEGER
+
 %token EQUAL NEQUAL LESS_EQUAL GREATER_EQUAL AND OR BIT_LSHIFT BIT_RSHIFT
 %token CONST ENUM STRUCT UNION
 %token <ptr> IDENT
-%token <i>   INTEGER;
+%token <i>   INTEGER
 
 %type <ptr> decl_list decl
 %type <ptr> enum_member_list enum_member
