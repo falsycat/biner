@@ -34,9 +34,6 @@ static const struct_member_type_name_meta_t struct_member_type_name_meta_map_
   [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_BI16] = {"b16", "int16_t"},
   [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_BI32] = {"b32", "int32_t"},
   [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_BI64] = {"b64", "int64_t"},
-  [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_F16]  = {"f16", "float"},
-  [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_F32]  = {"f32", "float"},
-  [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_F64]  = {"f64", "double"},
 };
 
 static const char* const expr_operator_string_map_

@@ -31,9 +31,6 @@ biner_tree_struct_member_type_name_meta_map
   [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_BI16] = {"bi16", 2},
   [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_BI32] = {"bi32", 4},
   [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_BI64] = {"bi64", 8},
-  [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_F16]  = {"f16",  2},
-  [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_F32]  = {"f32",  4},
-  [BINER_TREE_STRUCT_MEMBER_TYPE_NAME_F64]  = {"f64",  8},
 };
 
 biner_tree_parse_context_t biner_tree_parse_context_ = {0};
