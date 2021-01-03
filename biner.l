@@ -20,11 +20,18 @@ D [0-9]
 I [A-Za-z_]
 H [0-9A-Fa-f]
 
+%x IN_COMMENT
+
 %%
 
 [ \t\r\n]+ count_();
 "//".*     count_();
-[/][*][^*]*[*]+([^*/][^*]*[*]+)*[/] count_(); /* TODO: detect unterminated comment */
+
+<INITIAL>"/*"        { count_(); BEGIN(IN_COMMENT); }
+<IN_COMMENT>"*/"     { count_(); BEGIN(INITIAL); }
+<IN_COMMENT>[^\*\n]+ count_();
+<IN_COMMENT>"*"      count_();
+<IN_COMMENT>"\n"     count_();
 
 "==" { count_(); return EQUAL; }
 "!=" { count_(); return NEQUAL; }
