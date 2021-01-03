@@ -36,7 +36,7 @@ You can get an example from `test` directory.
 
 ## license
 
-What The Fuck You Want To Public License
+Do What The Fuck You Want To Public License
 
 ## author
 
