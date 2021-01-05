@@ -29,8 +29,8 @@ struct teacher_t {
 };
 
 struct student_t {
-  lu8[10] scores;
-  lu8     absents;
+  lu8[(1 << 4) - 6] scores;
+  lu8 absents;
 };
 
 struct user_t {

@@ -103,8 +103,8 @@ resolve_constant_(
 %type <ptr> struct_member_type array_struct_member_type unqualified_struct_member_type
 
 %type <ptr> expr or_expr and_expr bit_or_expr bit_xor_expr
-%type <ptr> bit_and_expr equality_expr relational_expr add_expr
-%type <ptr> mul_expr unary_expr operand
+%type <ptr> bit_and_expr equality_expr relational_expr shift_expr
+%type <ptr> add_expr mul_expr unary_expr operand
 
 %start decl_list
 
@@ -314,7 +314,7 @@ equality_expr
   ;
 
 relational_expr
-  : add_expr
+  : shift_expr
   | relational_expr '>' add_expr {
     $$ = create_operator_($1, BINER_TREE_EXPR_TYPE_OPERATOR_GREATER, $3);
   }
@@ -326,6 +326,16 @@ relational_expr
   }
   | relational_expr LESS_EQUAL add_expr {
     $$ = create_operator_($1, BINER_TREE_EXPR_TYPE_OPERATOR_LESS_EQUAL, $3);
+  }
+  ;
+
+shift_expr
+  : add_expr
+  | shift_expr BIT_LSHIFT add_expr {
+    $$ = create_operator_($1, BINER_TREE_EXPR_TYPE_OPERATOR_BIT_LSHIFT, $3);
+  }
+  | shift_expr BIT_RSHIFT add_expr {
+    $$ = create_operator_($1, BINER_TREE_EXPR_TYPE_OPERATOR_BIT_RSHIFT, $3);
   }
   ;
 

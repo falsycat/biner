@@ -56,6 +56,8 @@ static const char* const expr_operator_string_map_
   [BINER_TREE_EXPR_TYPE_OPERATOR_BIT_OR]        = "|",
   [BINER_TREE_EXPR_TYPE_OPERATOR_BIT_NOT]       = "~",
   [BINER_TREE_EXPR_TYPE_OPERATOR_BIT_XOR]       = "^",
+  [BINER_TREE_EXPR_TYPE_OPERATOR_BIT_LSHIFT]    = "<<",
+  [BINER_TREE_EXPR_TYPE_OPERATOR_BIT_RSHIFT]    = ">>",
 };
 
 typedef struct struct_member_info_t {
